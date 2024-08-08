@@ -59,7 +59,7 @@ def main():
         # send the measurement data to the network simulator
         # GO_data = send_to_network_sim(measurement)
         # parse the measurement data from the network simulator SMGW_data will be replaced by GO_data
-        parse_measurement(SMGW_data, net)
+        parse_measurement(SMGW_data, net) #replace SMGW_data with GO_data to incorporate network sim
         pandapower.estimation.remove_bad_data(net, init="slack")
         pandapower.estimation.estimate(net, init="slack", calculate_voltage_angles=True, zero_injection="aux_bus")
         # print(net.res_bus_est.head())
