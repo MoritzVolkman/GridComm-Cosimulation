@@ -11,14 +11,8 @@ import pandapower.timeseries as timeseries
 from pandapower.timeseries.data_sources.frame_data import DFData
 import simbench as sb
 
-def main():
-    # Load the Simbench data and configure the grid
-    sb_code = "1-LV-semiurb4--0-sw"
-    net = sb.get_simbench_net(sb_code)
-    print(net)
-    # df = pd.read_csv("timeseries.csv")
-    # plot.simple_plot(net)
-    example_measurement = {
+# Example measurement data as in the thesis
+example_measurement = {
           "MeasurementData": {
             "ActivePower": 123.45,
             "ReactivePower": 67.89,
@@ -44,12 +38,29 @@ def main():
             "DirectMarketerID": "DM12345678"
           }
         }
-    """
-    for i in range(0, len(df)):
-        SMGW_data = create_measurement(net, i, df)
-        GO_data = send_to_network_sim(measurement)
-        parse_measurement(GO_data, net)
-    """
+
+
+def main():
+    # Load the Simbench data and configure the grid
+    sb_code = "1-LV-semiurb4--0-sw"
+    net = sb.get_simbench_net(sb_code)
+    profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
+    for i in range(3): # normally should be 96, 3 just for testing
+        # Do a power flow calculation for each time step
+        apply_absolute_values(net, profiles, i)
+        net.trafo.tap_pos = 1
+        pandapower.runpp(net)
+        print(net.res_bus.head())
+        # create the measurement data for the time step
+        SMGW_data = create_measurement(net)
+        # print(SMGW_data)
+        # send the measurement data to the network simulator
+        # GO_data = send_to_network_sim(measurement)
+        # parse the measurement data from the network simulator SMGW_data will be replaced by GO_data
+        parse_measurement(SMGW_data, net)
+        pandapower.estimation.remove_bad_data(net, init="slack")
+        pandapower.estimation.estimate(net, init="slack", calculate_voltage_angles=True, zero_injection="aux_bus")
+        print(net.res_bus_est.head())
 
 
 def parse_measurement(measurements, net):
@@ -68,42 +79,43 @@ def parse_measurement(measurements, net):
             pandapower.create_measurement(net, "p", element_type="bus", value=active_power, std_dev=0.1, element=bus, side=0)
         if reactive_power is not None:
             pandapower.create_measurement(net, "q", element_type="bus", value=reactive_power, std_dev=0.1, element=bus, side=0)
-    print(net.measurement)
+    # print(net.measurement)
 
 
-def create_measurement(net, timestep, df):
+def create_measurement(net, amount=1):
     # Get the values for the time step and put them into the measurement object
     # The measurement object is in the form of a json object
     # The json object is then passed to the network simulator, which will return it later
     # The measurement object will be used to update the grid model afterwards
-    data = df.iloc[timestep]
     measurements = []
-    for bus in net["bus"].index:
-        # Work in progress, has to be adapted once the CSV is available
-        measurement = {
-            "MeasurementData": {
-                "ActivePower": data["ActivePower"],
-                "ReactivePower": data["ReactivePower"],
-                "ApparentPower": data["ApparentPower"],
-                "PowerFactor": data["PowerFactor"],
-                "Voltage": data["Voltage"],
-                "Current": data["Current"],
-                "Frequency": data["Frequency"],
-                "EnergyConsumption": data["EnergyConsumption"],
-                "MaximumDemand": data["MaximumDemand"],
-                "MeterStatus": data["MeterStatus"],
-                "EventLogs": data["EventLogs"]
-            },
-            "UserInformation": {
-                "ConsumerID": bus,
-                "ContractAccountNumber": f"CA{bus}",
-                "MeterPointAdministrationNumber": f"MPAN{bus}",
-                "AggregatorID": "Aggregator",
-                "SupplierID": "Supplier",
-                "DirectMarketerID": "DirectMarketer"
+    for bus in net.res_bus.index:
+        # Add measurement data for each bus, the values are taken from the power flow calculation
+        # If amount is set below 1, random busses will not have any measurement data
+        if np.random.rand() < amount:
+            measurement = {
+                "MeasurementData": {
+                    "ActivePower": net.res_bus.loc[bus]["p_mw"],
+                    "ReactivePower": net.res_bus.loc[bus]["q_mvar"],
+                    "ApparentPower": "nA",
+                    "PowerFactor": "nA",
+                    "Voltage": net.res_bus.loc[bus]["vm_pu"],
+                    "Current": "nA",
+                    "Frequency": "nA",
+                    "EnergyConsumption": "nA",
+                    "MaximumDemand": "nA",
+                    "MeterStatus": "nA",
+                    "EventLogs": "nA"
+                },
+                "UserInformation": {
+                    "ConsumerID": bus,
+                    "ContractAccountNumber": f"CA{bus}",
+                    "MeterPointAdministrationNumber": f"MPAN{bus}",
+                    "AggregatorID": "Aggregator",
+                    "SupplierID": "Supplier",
+                    "DirectMarketerID": "DirectMarketer"
+                }
             }
-        }
-        measurements.append(measurement)
+            measurements.append(measurement)
     return measurements
 
 
@@ -111,6 +123,14 @@ def send_to_network_sim(SMGW_data):
     # Send the measurement data to the network simulator
     # The network simulator will return the data as received by the grid operator
     pass
+
+
+def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
+    for elm_param in absolute_values_dict.keys():
+        if absolute_values_dict[elm_param].shape[1]:
+            elm = elm_param[0]
+            param = elm_param[1]
+            net[elm].loc[:, param] = absolute_values_dict[elm_param].loc[case_or_time_step]
 
 
 if __name__ == "__main__":
