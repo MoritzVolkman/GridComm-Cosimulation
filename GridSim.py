@@ -1,3 +1,4 @@
+import json
 import numpy as np
 import pandapower
 import pandas as pd
@@ -50,17 +51,18 @@ def main():
         apply_absolute_values(net, profiles, i)
         net.trafo.tap_pos = 1
         pandapower.runpp(net)
-        print(net.res_bus.head())
+        # print(net.res_bus.head())
         # create the measurement data for the time step
         SMGW_data = create_measurement(net)
         # print(SMGW_data)
+        send_to_network_sim(SMGW_data)
         # send the measurement data to the network simulator
         # GO_data = send_to_network_sim(measurement)
         # parse the measurement data from the network simulator SMGW_data will be replaced by GO_data
         parse_measurement(SMGW_data, net)
         pandapower.estimation.remove_bad_data(net, init="slack")
         pandapower.estimation.estimate(net, init="slack", calculate_voltage_angles=True, zero_injection="aux_bus")
-        print(net.res_bus_est.head())
+        # print(net.res_bus_est.head())
 
 
 def parse_measurement(measurements, net):
@@ -121,8 +123,8 @@ def create_measurement(net, amount=1):
 
 def send_to_network_sim(SMGW_data):
     # Send the measurement data to the network simulator
+    print(json.dumps(SMGW_data))
     # The network simulator will return the data as received by the grid operator
-    pass
 
 
 def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
