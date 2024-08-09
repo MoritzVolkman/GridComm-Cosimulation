@@ -44,25 +44,48 @@ def simulate_SGMW_TAF14():
     address = ns.Ipv4AddressHelper()
     address.SetBase(ns.Ipv4Address("10.1.1.0"), ns.Ipv4Mask("255.255.255.0"))
 
+    interfaces = []
     # Assign IP addresses to the prosumer and grid operator nodes
     for i in range(len(devices)):
-        interfaces = address.Assign(devices[i])
+        interface = address.Assign(devices[i])
+        interfaces.append(interface)
+
+    # Create an address list -> Addresses are saved in order of interfaces
+    address_list = []
+    for i in range(len(interfaces)):
+        address_list.append(interfaces[i].GetAddress(0))
+        address_list.append(interfaces[i].GetAddress(1))
 
     # Create the Server Application on the grid operator node
     port = 8080
-    print(ns.InetSocketAddress(ns.Ipv4Address.GetAny(), port).ConvertTo())
-    server_helper = ns.PacketSinkHelper("ns3::TcpSocketFactory", ns.InetSocketAddress(ns.Ipv4Address.GetAny(), port).ConvertTo())
+    server_helper = ns.PacketSinkHelper("ns3::TcpSocketFactory",
+                                        ns.InetSocketAddress(ns.Ipv4Address.GetAny(), port).ConvertTo())
     server_apps = server_helper.Install(grid_operator_node.Get(0))
     server_apps.Start(ns.Seconds(1.0))
     server_apps.Stop(ns.Seconds(10.0))
 
     # Create a TCP client on the first prosumer node
-    client_helper = ns.BulkSendHelper("ns3::TcpSocketFactory", ns.InetSocketAddress(interfaces.GetAddress(1), port).ConvertTo())
+    client_helper = ns.BulkSendHelper("ns3::TcpSocketFactory", ns.InetSocketAddress(address_list[0], port).ConvertTo())
     client_helper.SetAttribute("MaxBytes", ns.UintegerValue(1024))
-
     client_apps = client_helper.Install(prosumer_nodes.Get(0))
+
     client_apps.Start(ns.Seconds(2.0))
     client_apps.Stop(ns.Seconds(10.0))
+
+    # TODO: Create a PacketSocket on the second prosumer node to send the measurement data
+    #  -> throws errors at the moment
+    packet_helper = ns.PacketSocketHelper()
+    # packet_app = packet_helper.Install(prosumer_nodes.Get(1))
+    # packet_socket = packet_app.CreateSocket()
+    # packet_socket.Bind(ns.InetSocketAddress(interfaces[1].GetAddress(0), port).ConvertTo())
+
+    # Create a packet -> will be replaced by the measurement data later
+    data = "TestPacket"
+    data_e = bytearray(data.encode())
+    packet = ns.Packet(data_e, 1024)
+
+    # Send the packet -> needs a PacketSocket
+    # client_apps.Get(0).Send(packet)
 
     point_to_point.EnablePcapAll("SGMW_TAF14")
 
