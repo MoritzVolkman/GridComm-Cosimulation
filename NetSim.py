@@ -59,7 +59,7 @@ def simulate_SGMW_TAF14():
     # Create the Server Application on the grid operator node
     port = 8080
     server_helper = ns.PacketSinkHelper("ns3::TcpSocketFactory",
-                                        ns.InetSocketAddress(ns.Ipv4Address.GetAny(), port).ConvertTo())
+                                        ns.InetSocketAddress(address_list[1], port).ConvertTo())
     server_apps = server_helper.Install(grid_operator_node.Get(0))
     server_apps.Start(ns.Seconds(1.0))
     server_apps.Stop(ns.Seconds(10.0))
@@ -72,9 +72,16 @@ def simulate_SGMW_TAF14():
     client_apps.Start(ns.Seconds(2.0))
     client_apps.Stop(ns.Seconds(10.0))
 
-    # TODO: Create a PacketSocket on the second prosumer node to send the measurement data
+    tcp_socket = ns.TcpSocketBase()
+    tcp_socket.SetNode(prosumer_nodes.Get(1))
+    # The next two throw null pointer exceptions
+    # tcp_socket.Bind(ns.InetSocketAddress(address_list[2], port).ConvertTo())
+    # tcp_socket.Connect(ns.InetSocketAddress(address_list[3], port).ConvertTo())
+    print("TCP Socket has been created")
+
+    # Probably unnecessary code for the packet socket because of TCP socket
     #  -> throws errors at the moment
-    packet_helper = ns.PacketSocketHelper()
+    # packet_helper = ns.PacketSocketHelper()
     # packet_app = packet_helper.Install(prosumer_nodes.Get(1))
     # packet_socket = packet_app.CreateSocket()
     # packet_socket.Bind(ns.InetSocketAddress(interfaces[1].GetAddress(0), port).ConvertTo())
@@ -84,8 +91,14 @@ def simulate_SGMW_TAF14():
     data_e = bytearray(data.encode())
     packet = ns.Packet(data_e, 1024)
 
-    # Send the packet -> needs a PacketSocket
-    # client_apps.Get(0).Send(packet)
+    tcp_socket.SendTo(packet, 0, ns.InetSocketAddress(address_list[3], port).ConvertTo())
+    # tcp_socket.Send(packet, 0)
+    tcp_socket.Close()
+
+    # Maybe this is also a valid way to send a packet -> last one is protocol number
+    # -> TCP should be 6 according to google, UDP is 17
+    devices[1].Get(0).SendFrom(packet, ns.InetSocketAddress(address_list[2], port).ConvertTo(),
+                               ns.InetSocketAddress(address_list[3], port).ConvertTo(), 6)
 
     point_to_point.EnablePcapAll("SGMW_TAF14")
 
