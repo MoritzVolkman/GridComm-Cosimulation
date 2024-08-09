@@ -50,7 +50,7 @@ def simulate_SGMW_TAF14():
 
     # Create the Server Application on the grid operator node
     port = 8080
-    print(type(ns.InetSocketAddress(ns.Ipv4Address.GetAny(), port).ConvertTo()))
+    print(ns.InetSocketAddress(ns.Ipv4Address.GetAny(), port).ConvertTo())
     server_helper = ns.PacketSinkHelper("ns3::TcpSocketFactory", ns.InetSocketAddress(ns.Ipv4Address.GetAny(), port).ConvertTo())
     server_apps = server_helper.Install(grid_operator_node.Get(0))
     server_apps.Start(ns.Seconds(1.0))
@@ -63,6 +63,8 @@ def simulate_SGMW_TAF14():
     client_apps = client_helper.Install(prosumer_nodes.Get(0))
     client_apps.Start(ns.Seconds(2.0))
     client_apps.Stop(ns.Seconds(10.0))
+
+    point_to_point.EnablePcapAll("SGMW_TAF14")
 
     ns.Simulator.Run()
     ns.Simulator.Destroy()
