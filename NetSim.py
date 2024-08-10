@@ -19,6 +19,12 @@ Structure of the Simulated network should look somewhat like this:
     Prosumer 2  <--Point-to-Point--> Bridge 1 <--CSMA--> Bridge 2 <--Point-to-Point--> Grid Operator
     
     
+    TODO: Müsste aber vielleicht eher so Aussehen:
+    
+    Prosumer 1  <--CSMA--> 
+                            Bridge 1 <--Point-to-Point--> Bridge 2 <--Point-to-Point--> Grid Operator
+    Prosumer 2  <--CSMA--> 
+    
 etc.
 Basically, there is the bridge connection, which on the one side is connected to all the prosumers 
 and on the other side to the grid operator.
@@ -64,13 +70,16 @@ def simulate_SGMW_TAF14():
     # Create the point-to-point link between the bridge nodes and the grid operator
     grid_operator_device = point_to_point.Install(bridge_nodes.Get(1), grid_operator_node.Get(0))
 
+    tap_bridge = ns.TapBridgeHelper()
+    # tap_bridge.SetAttribute("Mode", ns.StringValue("ConfigureLocal"))
+    # tap_bridge.Install(grid_operator_node.Get(0), "ns3")
+
     # Install the internet stack on the prosumer and grid operator nodes
     stack = ns.InternetStackHelper()
-    # olsr = ns.OlsrHelper()
-    # stack.SetRoutingHelper(olsr)
-    stack.Install(prosumer_nodes)
-    stack.Install(grid_operator_node)
-    stack.Install(bridge_nodes)
+    olsr = ns.OlsrHelper()
+    # Somehow this stops the simulation from continuing
+    stack.SetRoutingHelper(olsr)
+    stack.InstallAll()
 
     # Declare the IP address space
     address = ns.Ipv4AddressHelper()
@@ -92,15 +101,13 @@ def simulate_SGMW_TAF14():
         address_list.append(interfaces[i].GetAddress(0))
         address_list.append(interfaces[i].GetAddress(1))
 
-    # Populate the routing tables
-    routing = ns.Ipv4GlobalRoutingHelper()
-    routing.PopulateRoutingTables()
-
     # Create the Server Application on the grid operator node
     port = 8080
     server_helper = ns.PacketSinkHelper("ns3::TcpSocketFactory",
                                         ns.InetSocketAddress(grid_operator_address.GetAddress(1), port).ConvertTo())
     server_apps = server_helper.Install(grid_operator_node.Get(0))
+    grid_operator_node.Get(0).AddApplication(server_apps.Get(0))
+    point_to_point.EnablePcap("GO", grid_operator_node.Get(0), True)
     server_apps.Start(ns.Seconds(1.0))
     server_apps.Stop(ns.Seconds(10.0))
 
@@ -108,6 +115,8 @@ def simulate_SGMW_TAF14():
     client_helper = ns.OnOffHelper("ns3::TcpSocketFactory", ns.InetSocketAddress(address_list[0], port).ConvertTo())
     client_helper.SetAttribute("MaxBytes", ns.UintegerValue(1024))
     client_apps = client_helper.Install(prosumer_nodes.Get(0))
+    prosumer_nodes.Get(0).AddApplication(client_apps.Get(0))
+    point_to_point.EnablePcap("Pro", prosumer_nodes.Get(0), True)
 
     client_apps.Start(ns.Seconds(2.0))
     client_apps.Stop(ns.Seconds(10.0))
@@ -146,8 +155,9 @@ def simulate_SGMW_TAF14():
     # Still nothing is received
     # print(server_apps.Get(0).GetTotalRx())
 
-    point_to_point.EnablePcapAll("SGMW_TAF14")
+    # point_to_point.EnablePcapAll("SGMW_TAF14")
 
+    ns.Simulator.Stop(ns.Seconds(11.0))
     ns.Simulator.Run()
     ns.Simulator.Destroy()
 
