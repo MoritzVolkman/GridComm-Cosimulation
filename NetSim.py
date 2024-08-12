@@ -33,6 +33,9 @@ and on the other side to the grid operator.
 
 
 def simulate_SGMW_TAF14():
+    # ns.GlobalValue.Bind("SimulatorImplementationType", ns.core.StringValue("ns3::RealtimeSimulatorImpl"))
+    # ns.GlobalValue.Bind("ChecksumEnabled", ns.core.BooleanValue("true"))
+
     # Set Data Rate and Packet Size for the OnOffApplication
     ns.Config.SetDefault("ns3::OnOffApplication::PacketSize", ns.StringValue("1024"))
     ns.Config.SetDefault("ns3::OnOffApplication::DataRate", ns.StringValue("5Mb/s"))
@@ -70,9 +73,12 @@ def simulate_SGMW_TAF14():
     # Create the point-to-point link between the bridge nodes and the grid operator
     grid_operator_device = point_to_point.Install(bridge_nodes.Get(1), grid_operator_node.Get(0))
 
+    # Installs Tap Bridge device on the grid operator node to create a real connection to the network
+    # At the moment lets the program break -> Example also does not work
     tap_bridge = ns.TapBridgeHelper()
-    # tap_bridge.SetAttribute("Mode", ns.StringValue("ConfigureLocal"))
-    # tap_bridge.Install(grid_operator_node.Get(0), "ns3")
+    tap_bridge.SetAttribute("Mode", ns.StringValue("UseLocal"))
+    tap_bridge.SetAttribute("DeviceName", ns.StringValue("tap0"))
+    # tap_bridge.Install(grid_operator_node.Get(0), "ns3") # Gives zero pointer exception
 
     # Install the internet stack on the prosumer and grid operator nodes
     stack = ns.InternetStackHelper()
@@ -150,14 +156,14 @@ def simulate_SGMW_TAF14():
     # -> TCP should be 6 according to google, UDP is 17
     # print(prosumer_devices[1].Get(0).GetAddress())
     # prosumer_devices[1].Get(0).SendFrom(packet, ns.InetSocketAddress(address_list[2], port).ConvertTo(),
-    #                          ns.InetSocketAddress(grid_operator_address.GetAddress(1), port).ConvertTo(), 6)
+    #                        ns.InetSocketAddress(grid_operator_address.GetAddress(1), port).ConvertTo(), 6)
     # print(devices[1].Get(1).Receive(packet))
     # Still nothing is received
     # print(server_apps.Get(0).GetTotalRx())
 
     # point_to_point.EnablePcapAll("SGMW_TAF14")
 
-    ns.Simulator.Stop(ns.Seconds(11.0))
+    ns.Simulator.Stop(ns.Seconds(60.0))
     ns.Simulator.Run()
     ns.Simulator.Destroy()
 
