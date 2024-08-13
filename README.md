@@ -7,4 +7,6 @@ cp NetSim.cc Path/to/ns3/scratch/NetSim.cc
 Path/to/ns3 run scratch/NetSim.cc
 ```
 
+This is how the Program should work once it is finished:
+
 ![Sequence Diagram](./figures/CoSim.png)
