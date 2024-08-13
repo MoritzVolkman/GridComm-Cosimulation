@@ -221,8 +221,8 @@ int main(int argc, char *argv[])
   Config::ConnectWithoutContext("/NodeList/9/ApplicationList/*/$ns3::PacketSink/RxWithAddresses",
                                 MakeCallback(&ReceivePacketTrace));
 
-  // Enable pcap tracing on all devices
-  pointToPoint.EnablePcapAll("tcp-example");
+  // Enable pcap tracing on all devices -> Directory has to be adapted to the local path
+  pointToPoint.EnablePcapAll("../../../PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
 
   Simulator::Run();    // Run the simulator
   Simulator::Destroy(); // Clean up after the simulation
