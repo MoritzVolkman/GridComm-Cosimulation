@@ -11,3 +11,7 @@ Path/to/ns3 run scratch/NetSim.cc
 This is how the Program should work once it is finished:
 
 ![Sequence Diagram](./figures/CoSim.png)
+
+Or like this: (not yet decided)
+
+![Sequence Diagram 2](./figures/CoSimv2.png)
