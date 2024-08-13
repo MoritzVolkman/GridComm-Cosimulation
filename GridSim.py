@@ -1,4 +1,6 @@
 import json
+import socket
+import select
 import numpy as np
 import pandapower
 import pandas as pd
@@ -127,6 +129,49 @@ def send_to_network_sim(SMGW_data):
     # The network simulator will return the data as received by the grid operator
 
 
+def receive_from_network_sim(measurements = example_measurement, host = '127.0.0.1', port = 8080, timeout = 1):
+    # Create a socket and listen for incoming connections
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_address = (host, port)
+    server_socket.bind(server_address)
+    server_socket.listen(1)
+    print(f"Server is running on {host}:{port}, waiting for connection...")
+
+    while True:
+        # Put the server socket in the readable list and wait for a connection
+        readable, _, _ = select.select([server_socket], [], [], timeout)
+        if readable:
+            connection, client_address = server_socket.accept()
+            try:
+                print(f"Connection from {client_address}")
+
+                # Receive the data from the network simulator
+                while True:
+                    ready = select.select([connection], [], [], timeout)
+                    if ready[0]:
+                        data = connection.recv(1024)
+                        if data:
+                            # Decode the received data and print it
+                            json_data = data.decode('utf-8')
+                            try:
+                                json_object = json.loads(json_data)
+                                measurements["measurement"] = json_object
+                                print("Received JSON-Object:", json.dumps(json_object, indent=2))
+                            except json.JSONDecodeError:
+                                print("Error while decoding JSON:", json_data)
+                            break  # break the inner loop after receiving data
+                        else:
+                            break  # no data received, break the inner loop
+                    else:
+                        print("No further data received.")
+                        break
+            finally:
+                connection.close()
+        else:
+            print("No client connected. Exceeded waiting time.")
+            break  # break the outer loop after exceeding the waiting time
+
+
 def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
     for elm_param in absolute_values_dict.keys():
         if absolute_values_dict[elm_param].shape[1]:
@@ -136,4 +181,5 @@ def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    receive_from_network_sim(timeout=60)
