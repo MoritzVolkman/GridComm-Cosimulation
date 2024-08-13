@@ -3,10 +3,8 @@
 
 To run the NetSim, do the following in the terminal:
 ```bash
-~/path/to/ns3 configure --enable-python-bindings
-~/path/to/ns3 build
-~/path/to/ns3 shell
-python ~/path/to/NetSim.py
+cp NetSim.cc Path/to/ns3/scratch/NetSim.cc
+Path/to/ns3 run scratch/NetSim.cc
 ```
 
 ![Sequence Diagram](./figures/CoSim.png)
