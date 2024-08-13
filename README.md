@@ -8,3 +8,5 @@ To run the NetSim, do the following in the terminal:
 ~/path/to/ns3 shell
 python ~/path/to/NetSim.py
 ```
+
+![Sequence Diagram](./figures/CoSim.png)
