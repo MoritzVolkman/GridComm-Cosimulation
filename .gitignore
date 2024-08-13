@@ -1,2 +1,4 @@
 *.pcap
 tap-csma-virtual-machine.py
+*.png
+*.svg
