@@ -1,0 +1,25 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+
+activate GridSim
+loop n times
+    GridSim -> GridSim: Get Load Profiles for Timestep
+    GridSim -> GridSim: Power Flow Calculation
+    GridSim -> GridSim: Extract Measurements and create SMGW JSON objects
+    GridSim -> "Tap Device": Pass JSON measurement data
+    activate "Tap Device"
+    activate NetSim
+    "Tap Device" -> NetSim: Pass JSON measurement data
+    !pragma teoz true
+    NetSim -> NetSim: Simulate sending of measurement data to Grid Operator
+    & "Tap Device" -> NetSim: Conduct FDIA
+    GridSim -> GridSim: Start listening for incoming data
+    NetSim -> "Tap Device": Send back data received by Grid Operator
+    "Tap Device" -> GridSim: Send back data received by Grid Operator
+    deactivate NetSim
+    deactivate "Tap Device"
+    GridSim -> GridSim: Run Bad Data Detection
+    GridSim -> GridSim: Run State Estimation
+end
+deactivate GridSim
+@enduml
