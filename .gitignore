@@ -1,3 +1,5 @@
 *.pcap
 tap-csma-virtual-machine.*
 *.svg
+
+build
