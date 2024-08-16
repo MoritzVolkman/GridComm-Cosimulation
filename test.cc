@@ -1,66 +1,110 @@
 #include "ns3/core-module.h"
-#include "ns3/csma-module.h"
 #include "ns3/network-module.h"
-#include "ns3/tap-bridge-module.h"
 #include "ns3/internet-module.h"
-#include <iostream>
+#include "ns3/point-to-point-module.h"
+#include "ns3/applications-module.h"
+#include "ns3/pcap-file-wrapper.h"
+
+#include <fstream> // Necessary for file operations
+#include <sstream>
+#include <nlohmann/json.hpp> // Assuming you have access to this library
 
 using namespace ns3;
+using json = nlohmann::json; // Define json from nlohmann
 
-NS_LOG_COMPONENT_DEFINE("TapCsmaVirtualMachineExample");
+// Definiere eine eindeutige Komponente für das Logging
+NS_LOG_COMPONENT_DEFINE("TcpExample");
 
-void SaveTcpPayloadAsJson(Ptr<const Packet> packet, Ptr<NetDevice> device)
+// Custom application to send TCP packets
+class MyApp : public Application
 {
-    EthernetHeader ethHeader;
-    Ipv4Header ipHeader;
-    TcpHeader tcpHeader;
-    Ptr<Packet> copy = packet->Copy();
+  // (The rest of your application code remains unchanged...)
 
-    if (copy->PeekHeader(ethHeader)) {
-        if (copy->RemoveHeader(ipHeader)) {
-            if (copy->RemoveHeader(tcpHeader)) {
-                uint32_t dataSize = copy->GetSize();
-                uint8_t* buffer = new uint8_t[dataSize];
-                copy->CopyData(buffer, dataSize);
-                std::string payload(reinterpret_cast<char*>(buffer), dataSize);
-                delete[] buffer;
+  // Invoke my JSON file reading function
+  void LoadJsonData(std::string path, std::string jsonData[], int size);
 
-                // Ausgabe des Payloads und der Quell-IP-Adresse in der Konsole
-                std::cout << "Source IP: " << ipHeader.GetSource() << ", Payload: " << payload << std::endl;
-            }
-        }
+};
+
+// Function to load JSON data from files
+void MyApp::LoadJsonData(std::string path, std::string jsonData[], int size)
+{
+  for (int i = 0; i < size; ++i)
+  {
+    std::ifstream file(path + "measurement_0_" + std::to_string(i) + ".json");
+    if (file)
+    {
+      std::ostringstream ss;
+      ss << file.rdbuf(); // Read file content into string stream
+      jsonData[i] = ss.str(); // Store it as a string in array
     }
+    else
+    {
+      NS_LOG_UNCOND("Error reading file: " + path + "measurement_0_" + std::to_string(i) + ".json");
+      // Handle error case appropriately (e.g., stop execution or provide default data)
+    }
+  }
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
-    CommandLine cmd(__FILE__);
-    cmd.Parse(argc, argv);
+  LogComponentEnable("TcpExample", LOG_LEVEL_INFO);
 
-    GlobalValue::Bind("SimulatorImplementationType", StringValue("ns3::RealtimeSimulatorImpl"));
-    GlobalValue::Bind("ChecksumEnabled", BooleanValue(true));
+  // JSON-Strings für die Daten, die versendet werden sollen
+  std::string jsonData[9];
 
-    NodeContainer nodes;
-    nodes.Create(2);
+  MyApp appInstance;
 
-    CsmaHelper csma;
-    NetDeviceContainer devices = csma.Install(nodes);
+  // Load JSON data from files
+  appInstance.LoadJsonData("../../../PycharmProjects/GridComm-Cosimulation/JSON/", jsonData, 9);
 
-    TapBridgeHelper tapBridge;
-    tapBridge.SetAttribute("Mode", StringValue("UseBridge"));
-    tapBridge.SetAttribute("DeviceName", StringValue("tap-left"));
-    tapBridge.Install(nodes.Get(0), devices.Get(0));
+  // The rest of your main function code...
+  NodeContainer nodes;
+  nodes.Create(10);
 
-    devices.Get(0)->GetObject<NetDevice>()->TraceConnectWithoutContext(
-        "PromiscRx",
-        MakeCallback(&SaveTcpPayloadAsJson));
+  PointToPointHelper pointToPoint;
+  pointToPoint.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
+  pointToPoint.SetChannelAttribute("Delay", StringValue("2ms"));
 
-    tapBridge.SetAttribute("DeviceName", StringValue("tap-right"));
-    tapBridge.Install(nodes.Get(1), devices.Get(1));
+  InternetStackHelper stack;
+  stack.Install(nodes);
 
-    Simulator::Stop(Seconds(600.));
-    Simulator::Run();
-    Simulator::Destroy();
+  Ipv4AddressHelper address;
+  std::vector<Ipv4InterfaceContainer> interfaces(9);
 
-    return 0;
+  for (uint32_t i = 0; i < 9; ++i)
+  {
+    NetDeviceContainer devices = pointToPoint.Install(NodeContainer(nodes.Get(i), nodes.Get(9)));
+    std::ostringstream subnet;
+    subnet << "10.1." << i + 1 << ".0";
+    address.SetBase(subnet.str().c_str(), "255.255.255.0");
+    interfaces[i] = address.Assign(devices);
+  }
+
+  uint16_t port = 8080;
+  PacketSinkHelper packetSinkHelper("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
+  ApplicationContainer sinkApps = packetSinkHelper.Install(nodes.Get(9));
+  sinkApps.Start(Seconds(1.0));
+  sinkApps.Stop(Seconds(10.0));
+
+  for (uint32_t i = 0; i < 9; ++i)
+  {
+    Ptr<Socket> ns3TcpSocket = Socket::CreateSocket(nodes.Get(i), TcpSocketFactory::GetTypeId());
+    Address sinkAddress(InetSocketAddress(interfaces[i].GetAddress(1), port));
+    Ptr<MyApp> app = CreateObject<MyApp>();
+    app->Setup(ns3TcpSocket, sinkAddress, 1040, 1, DataRate("1Mbps"), jsonData[i]);
+    nodes.Get(i)->AddApplication(app);
+    app->SetStartTime(Seconds(2.0));
+    app->SetStopTime(Seconds(10.0));
+
+    app->TraceConnectWithoutContext("Tx", MakeCallback(&SendPacketTrace));
+  }
+
+  Config::ConnectWithoutContext("/NodeList/9/ApplicationList/*/$ns3::PacketSink/RxWithAddresses",
+                                MakeCallback(&ReceivePacketTrace));
+
+  pointToPoint.EnablePcapAll("../../../PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
+
+  Simulator::Run();
+  Simulator::Destroy();
+  return 0;
 }
