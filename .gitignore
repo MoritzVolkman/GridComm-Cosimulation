@@ -2,4 +2,6 @@
 tap-csma-virtual-machine.*
 *.svg
 
+.venv
+
 build

@@ -4,6 +4,7 @@ import select
 import numpy as np
 import pandapower
 import pandas as pd
+from tuntap import TunTap
 import matplotlib.pyplot as plt
 import os
 import pandapower.topology as top
@@ -45,6 +46,17 @@ example_measurement = {
 
 def main():
     # Load the Simbench data and configure the grid
+    tap = TunTap(nic_type="Tap", nic_name="tap0")
+    tap.config(ip="10.27.0.2", mask="255.255.255.0", gateway="10.27.0.1")
+
+    while not tap.quitting():
+        p = tap.read()
+        if not p:
+            continue
+        else:
+            tap.write(p)
+    tap.close()
+
     sb_code = "1-LV-semiurb4--0-sw"
     net = sb.get_simbench_net(sb_code)
     profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
@@ -125,52 +137,15 @@ def create_measurement(net, amount=1):
 
 def send_to_network_sim(SMGW_data):
     # Send the measurement data to the network simulator
-    print(json.dumps(SMGW_data))
+    with open("to_netsim.json", "wt") as f:
+        json.dump(SMGW_data, f)
     # The network simulator will return the data as received by the grid operator
 
 
 def receive_from_network_sim(measurements = example_measurement, host = '127.0.0.1', port = 8080, timeout = 1):
-    # Create a socket and listen for incoming connections
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_address = (host, port)
-    server_socket.bind(server_address)
-    server_socket.listen(1)
-    print(f"Server is running on {host}:{port}, waiting for connection...")
-
-    while True:
-        # Put the server socket in the readable list and wait for a connection
-        readable, _, _ = select.select([server_socket], [], [], timeout)
-        if readable:
-            connection, client_address = server_socket.accept()
-            try:
-                print(f"Connection from {client_address}")
-
-                # Receive the data from the network simulator
-                while True:
-                    ready = select.select([connection], [], [], timeout)
-                    if ready[0]:
-                        data = connection.recv(1024)
-                        if data:
-                            # Decode the received data and print it
-                            json_data = data.decode('utf-8')
-                            try:
-                                json_object = json.loads(json_data)
-                                measurements["measurement"] = json_object
-                                print("Received JSON-Object:", json.dumps(json_object, indent=2))
-                            except json.JSONDecodeError:
-                                print("Error while decoding JSON:", json_data)
-                            break  # break the inner loop after receiving data
-                        else:
-                            break  # no data received, break the inner loop
-                    else:
-                        print("No further data received.")
-                        break
-            finally:
-                connection.close()
-        else:
-            print("No client connected. Exceeded waiting time.")
-            break  # break the outer loop after exceeding the waiting time
-
+    # simulate network transfer by reading from file instead of socket
+    with open("from_netsim.json") as f:
+        return json.load(f)
 
 def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
     for elm_param in absolute_values_dict.keys():
