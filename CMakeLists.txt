@@ -1,9 +1,20 @@
 cmake_minimum_required(VERSION 3.10)
 
+# Allow linking libraries to targets of subdirectories (e.g. json to scratch targets)
+if(POLICY CMP0079 )
+  cmake_policy(SET CMP0079 NEW)
+endif()
+
 project(netsim)
 
-file(COPY_FILE ${CMAKE_SOURCE_DIR}/src/NetSim.cc ${CMAKE_SOURCE_DIR}/ext/ns3/scratch/NetSim.cc ONLY_IF_DIFFERENT)
+include(FetchContent)
+
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
+FetchContent_MakeAvailable(json)
+
+file(COPY_FILE ${CMAKE_SOURCE_DIR}/NetSim.cc ${CMAKE_SOURCE_DIR}/ext/ns3/scratch/NetSim.cc ONLY_IF_DIFFERENT)
 
 add_subdirectory(ext/ns3)
 
 target_compile_features(scratch_NetSim PUBLIC cxx_std_20)
+target_link_libraries(scratch_NetSim nlohmann_json::nlohmann_json)
