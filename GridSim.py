@@ -118,7 +118,7 @@ def send_to_network_sim(SMGW_data, timestep):
     # Creates a json file for each measurement object for the Network Simulator to access
     # The Network Simulator will then read the json file and return the measurement data
     for i, measurement in enumerate(SMGW_data):
-        with open(f"measurement_{timestep}_{i}.json", "w") as file:
+        with open(f"./JSON/measurement_{timestep}_{i}.json", "w") as file:
             json.dump(measurement, file)
             file.close()
 
@@ -135,7 +135,7 @@ def receive_from_network_sim(timeout=60):
     start = time.time()
     while time.time() - start < timeout:
         for file in os.listdir():
-            if file.startswith("grid_") and file.endswith(".json"):
+            if file.startswith("./JSON/grid_") and file.endswith(".json"):
                 with open(file, "r") as file:
                     measurement = json.load(file)
                     grid_data.append(measurement)
