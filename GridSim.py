@@ -1,17 +1,8 @@
 import json
-import socket
-import select
+import time
 import numpy as np
 import pandapower
-import pandas as pd
-import matplotlib.pyplot as plt
 import os
-import pandapower.topology as top
-import pandapower.plotting as plot
-import pandapower.control as control
-import pandapower.networks as nw
-import pandapower.timeseries as timeseries
-from pandapower.timeseries.data_sources.frame_data import DFData
 import simbench as sb
 
 # Example measurement data as in the thesis
@@ -57,7 +48,7 @@ def main():
         # create the measurement data for the time step
         SMGW_data = create_measurement(net)
         # print(SMGW_data)
-        send_to_network_sim(SMGW_data)
+        send_to_network_sim(SMGW_data, i)
         # send the measurement data to the network simulator
         # GO_data = send_to_network_sim(measurement)
         # parse the measurement data from the network simulator SMGW_data will be replaced by GO_data
@@ -123,53 +114,36 @@ def create_measurement(net, amount=1):
     return measurements
 
 
-def send_to_network_sim(SMGW_data):
-    # Send the measurement data to the network simulator
-    print(json.dumps(SMGW_data))
-    # The network simulator will return the data as received by the grid operator
+def send_to_network_sim(SMGW_data, timestep):
+    # Creates a json file for each measurement object for the Network Simulator to access
+    # The Network Simulator will then read the json file and return the measurement data
+    for i, measurement in enumerate(SMGW_data):
+        with open(f"measurement_{timestep}_{i}.json", "w") as file:
+            json.dump(measurement, file)
+            file.close()
 
 
-def receive_from_network_sim(measurements = example_measurement, host = '127.0.0.1', port = 8080, timeout = 1):
-    # Create a socket and listen for incoming connections
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_address = (host, port)
-    server_socket.bind(server_address)
-    server_socket.listen(1)
-    print(f"Server is running on {host}:{port}, waiting for connection...")
-
-    while True:
-        # Put the server socket in the readable list and wait for a connection
-        readable, _, _ = select.select([server_socket], [], [], timeout)
-        if readable:
-            connection, client_address = server_socket.accept()
-            try:
-                print(f"Connection from {client_address}")
-
-                # Receive the data from the network simulator
-                while True:
-                    ready = select.select([connection], [], [], timeout)
-                    if ready[0]:
-                        data = connection.recv(1024)
-                        if data:
-                            # Decode the received data and print it
-                            json_data = data.decode('utf-8')
-                            try:
-                                json_object = json.loads(json_data)
-                                measurements["measurement"] = json_object
-                                print("Received JSON-Object:", json.dumps(json_object, indent=2))
-                            except json.JSONDecodeError:
-                                print("Error while decoding JSON:", json_data)
-                            break  # break the inner loop after receiving data
-                        else:
-                            break  # no data received, break the inner loop
-                    else:
-                        print("No further data received.")
-                        break
-            finally:
-                connection.close()
-        else:
-            print("No client connected. Exceeded waiting time.")
-            break  # break the outer loop after exceeding the waiting time
+def receive_from_network_sim(timeout=60):
+    # Receives the measurement data from the Network Simulator
+    # The Network Simulator will write the data into a json file
+    # The function will read the json file and return the data
+    # The function will wait for the timeout in seconds
+    # If the timeout is reached, the function will return None
+    # If the file is read, the function will return the data as a list of json objects
+    # The function will return None if no file is found
+    grid_data = []
+    start = time.time()
+    while time.time() - start < timeout:
+        for file in os.listdir():
+            if file.startswith("grid_") and file.endswith(".json"):
+                with open(file, "r") as file:
+                    measurement = json.load(file)
+                    grid_data.append(measurement)
+                    os.remove(file.name)
+    if len(grid_data) > 0:
+        return grid_data
+    else:
+        return None
 
 
 def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
@@ -181,5 +155,5 @@ def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
 
 
 if __name__ == "__main__":
-    # main()
-    receive_from_network_sim(timeout=60)
+    main()
+    # receive_from_network_sim(timeout=60)

@@ -1,3 +1,4 @@
 *.pcap
 tap-csma-virtual-machine.*
 *.svg
+*.json
