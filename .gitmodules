@@ -1,0 +1,3 @@
+[submodule "ext/ns3"]
+	path = ext/ns3
+	url = https://gitlab.com/nsnam/ns-3-dev
