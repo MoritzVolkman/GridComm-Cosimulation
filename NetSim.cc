@@ -220,7 +220,7 @@ int main(int argc, char *argv[])
   // Trace packet reception for the sink
   Config::ConnectWithoutContext("/NodeList/9/ApplicationList/*/$ns3::PacketSink/RxWithAddresses",
                                 MakeCallback(&ReceivePacketTrace));
-
+/*
    const size_t size = 1024;
     // Allocate a character array to store the directory path
     char buffer[size];
@@ -234,6 +234,7 @@ int main(int argc, char *argv[])
         // If _getcwd returns NULL, print an error message
         std::cerr << "Error getting current working directory" << std::endl;
     }
+*/
 // Enable pcap tracing on all devices -> Directory has to be adapted to the local path
   pointToPoint.EnablePcapAll("../../../../../PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
 
