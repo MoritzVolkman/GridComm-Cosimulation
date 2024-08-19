@@ -13,8 +13,11 @@ FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download
 FetchContent_MakeAvailable(json)
 
 file(COPY_FILE ${CMAKE_SOURCE_DIR}/NetSim.cc ${CMAKE_SOURCE_DIR}/ext/ns3/scratch/NetSim.cc ONLY_IF_DIFFERENT)
+file(COPY_FILE ${CMAKE_SOURCE_DIR}/test.cc ${CMAKE_SOURCE_DIR}/ext/ns3/scratch/test.cc ONLY_IF_DIFFERENT)
 
 add_subdirectory(ext/ns3)
 
 target_compile_features(scratch_NetSim PUBLIC cxx_std_20)
 target_link_libraries(scratch_NetSim nlohmann_json::nlohmann_json)
+target_compile_features(scratch_test PUBLIC cxx_std_20)
+target_link_libraries(scratch_test nlohmann_json::nlohmann_json)
