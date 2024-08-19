@@ -3,3 +3,5 @@ tap-csma-virtual-machine.*
 *.svg
 build
 *.json
+cmake-build-debug
+.venv
