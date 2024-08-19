@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/GridComm-Cosimulation.iml" filepath="$PROJECT_DIR$/.idea/GridComm-Cosimulation.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/GridComm-Cosimulation2.iml" filepath="$PROJECT_DIR$/.idea/GridComm-Cosimulation2.iml" />
     </modules>
   </component>
 </project>
