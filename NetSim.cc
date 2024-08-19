@@ -221,8 +221,21 @@ int main(int argc, char *argv[])
   Config::ConnectWithoutContext("/NodeList/9/ApplicationList/*/$ns3::PacketSink/RxWithAddresses",
                                 MakeCallback(&ReceivePacketTrace));
 
-  // Enable pcap tracing on all devices -> Directory has to be adapted to the local path
-  pointToPoint.EnablePcapAll("../../../PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
+   const size_t size = 1024;
+    // Allocate a character array to store the directory path
+    char buffer[size];
+
+    // Call _getcwd to get the current working directory and store it in buffer
+    if (getcwd(buffer, size) != NULL) {
+        // print the current working directory
+        std::cout << "Current working directory: " << buffer << std::endl;
+    }
+    else {
+        // If _getcwd returns NULL, print an error message
+        std::cerr << "Error getting current working directory" << std::endl;
+    }
+// Enable pcap tracing on all devices -> Directory has to be adapted to the local path
+  pointToPoint.EnablePcapAll("../../../../../PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
 
   Simulator::Run();    // Run the simulator
   Simulator::Destroy(); // Clean up after the simulation
