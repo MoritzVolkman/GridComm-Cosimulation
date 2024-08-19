@@ -5,6 +5,8 @@
 #include "ns3/applications-module.h"
 #include "ns3/pcap-file-wrapper.h"
 
+#include <pcap.hpp>
+
 using namespace ns3;
 
 // Definiere eine eindeutige Komponente für das Logging
@@ -235,9 +237,9 @@ int main(int argc, char *argv[])
         std::cerr << "Error getting current working directory" << std::endl;
     }
 // Enable pcap tracing on all devices -> Directory has to be adapted to the local path
-  pointToPoint.EnablePcapAll("../../../../../PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
+    pointToPoint.EnablePcapAll(pcap::path);
 
-  Simulator::Run();    // Run the simulator
-  Simulator::Destroy(); // Clean up after the simulation
-  return 0;
+    Simulator::Run();     // Run the simulator
+    Simulator::Destroy(); // Clean up after the simulation
+    return 0;
 }

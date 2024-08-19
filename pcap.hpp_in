@@ -1,0 +1,5 @@
+#pragma once
+
+namespace pcap {
+constexpr auto path = "${PCAP_FILES_PATH}";
+}

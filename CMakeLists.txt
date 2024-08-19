@@ -17,6 +17,11 @@ file(COPY_FILE ${CMAKE_SOURCE_DIR}/test.cc ${CMAKE_SOURCE_DIR}/ext/ns3/scratch/t
 
 add_subdirectory(ext/ns3)
 
+set(PCAP_FILES_PATH "${CMAKE_SOURCE_DIR}/PCAP/NetSim")
+configure_file(${CMAKE_SOURCE_DIR}/pcap.hpp_in ${CMAKE_BINARY_DIR}/pcap/pcap.hpp)
+target_include_directories(scratch_NetSim PUBLIC "${CMAKE_BINARY_DIR}/pcap")
+target_include_directories(scratch_test PUBLIC "${CMAKE_BINARY_DIR}/pcap")
+
 target_compile_features(scratch_NetSim PUBLIC cxx_std_20)
 target_link_libraries(scratch_NetSim nlohmann_json::nlohmann_json)
 target_compile_features(scratch_test PUBLIC cxx_std_20)

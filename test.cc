@@ -9,6 +9,8 @@
 #include <sstream>
 #include <nlohmann/json.hpp> // Assuming you have access to this library
 
+#include <pcap.hpp>
+
 using namespace ns3;
 using json = nlohmann::json; // Define json from nlohmann
 
@@ -102,7 +104,7 @@ int main(int argc, char *argv[])
   Config::ConnectWithoutContext("/NodeList/9/ApplicationList/*/$ns3::PacketSink/RxWithAddresses",
                                 MakeCallback(&ReceivePacketTrace));
 
-  pointToPoint.EnablePcapAll("../../../PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
+  pointToPoint.EnablePcapAll(pcap::path);
 
   Simulator::Run();
   Simulator::Destroy();
