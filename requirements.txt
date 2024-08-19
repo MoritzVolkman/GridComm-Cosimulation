@@ -1,0 +1,12 @@
+numpy==1.26.4
+numba
+scipy
+pandas
+matplotlib
+networkx
+packaging
+tqdm
+deepdiff
+pytest
+pandapower
+simbench
