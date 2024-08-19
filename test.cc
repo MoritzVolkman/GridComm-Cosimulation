@@ -17,18 +17,102 @@ NS_LOG_COMPONENT_DEFINE("TcpExample");
 class MyApp : public Application
 {
 public:
+    MyApp();
+    virtual ~MyApp();
+
     void LoadJsonData(std::string path, std::string jsonData[], int size);
     void Setup(Ptr<Socket> socket, Address address, uint32_t packetSize,
                uint32_t nPackets, DataRate dataRate, std::string jsonData);
 
 private:
+    virtual void StartApplication(void);
+    virtual void StopApplication(void);
+
+    void ScheduleTx(void);
+    void SendPacket(void);
+
     Ptr<Socket> m_socket;
     Address m_peer;
     uint32_t m_packetSize;
     uint32_t m_nPackets;
     DataRate m_dataRate;
     std::string m_jsonData;
+    EventId m_sendEvent;
+    bool m_running;
+    uint32_t m_packetsSent;
 };
+
+MyApp::MyApp()
+    : m_socket(0),
+      m_peer(),
+      m_packetSize(0),
+      m_nPackets(0),
+      m_dataRate(0),
+      m_sendEvent(),
+      m_running(false),
+      m_packetsSent(0) {}
+
+MyApp::~MyApp()
+{
+    m_socket = 0;
+}
+
+void MyApp::Setup(Ptr<Socket> socket, Address address, uint32_t packetSize,
+                  uint32_t nPackets, DataRate dataRate, std::string jsonData)
+{
+    m_socket = socket;
+    m_peer = address;
+    m_packetSize = packetSize;
+    m_nPackets = nPackets;
+    m_dataRate = dataRate;
+    m_jsonData = jsonData;
+}
+
+void MyApp::StartApplication(void)
+{
+    m_running = true;
+    m_packetsSent = 0;
+
+    // Connect the socket
+    m_socket->Bind();
+    m_socket->Connect(m_peer);
+    SendPacket();
+}
+
+void MyApp::StopApplication(void)
+{
+    m_running = false;
+
+    if (m_sendEvent.IsRunning())
+    {
+        Simulator::Cancel(m_sendEvent);
+    }
+
+    if (m_socket)
+    {
+        m_socket->Close();
+    }
+}
+
+void MyApp::SendPacket(void)
+{
+    Ptr<Packet> packet = Create<Packet>((uint8_t *)m_jsonData.c_str(), m_packetSize);
+    m_socket->Send(packet);
+
+    if (++m_packetsSent < m_nPackets)
+    {
+        ScheduleTx();
+    }
+}
+
+void MyApp::ScheduleTx(void)
+{
+    if (m_running)
+    {
+        Time tNext(Seconds(m_packetSize * 8 / static_cast<double>(m_dataRate.GetBitRate())));
+        m_sendEvent = Simulator::Schedule(tNext, &MyApp::SendPacket, this);
+    }
+}
 
 void MyApp::LoadJsonData(std::string path, std::string jsonData[], int size)
 {
@@ -48,36 +132,18 @@ void MyApp::LoadJsonData(std::string path, std::string jsonData[], int size)
     }
 }
 
-void MyApp::Setup(Ptr<Socket> socket, Address address, uint32_t packetSize, uint32_t nPackets, DataRate dataRate, std::string jsonData)
-{
-    m_socket = socket;
-    m_peer = address;
-    m_packetSize = packetSize;
-    m_nPackets = nPackets;
-    m_dataRate = dataRate;
-    m_jsonData = jsonData;
-
-    if (!m_socket)
-    {
-        NS_LOG_UNCOND("Socket is not created");
-        return;
-    }
-
-    m_socket->Connect(m_peer);
-    NS_LOG_UNCOND("Setup called with JSON Data: " + jsonData);
-}
-
 void SendPacketTrace(Ptr<const Packet> packet)
 {
     NS_LOG_UNCOND("Packet Sent: " + std::to_string(packet->GetSize()));
 }
 
-void ReceivePacketTrace(Ptr<const Packet> packet, const Address& from)
+void ReceivePacketTrace(Ptr<const Packet> packet, const Address& from, const Address& to)
 {
-    Ipv4Address ipv4Addr = InetSocketAddress::ConvertFrom(from).GetIpv4();
+    Ipv4Address ipv4AddrFrom = InetSocketAddress::ConvertFrom(from).GetIpv4();
+    Ipv4Address ipv4AddrTo = InetSocketAddress::ConvertFrom(to).GetIpv4();
     std::ostringstream oss;
-    oss << ipv4Addr;
-    NS_LOG_UNCOND("Packet Received from: " + oss.str());
+    oss << "Packet Received from: " << ipv4AddrFrom << " to: " << ipv4AddrTo;
+    NS_LOG_UNCOND(oss.str());
 }
 
 int main(int argc, char* argv[])
