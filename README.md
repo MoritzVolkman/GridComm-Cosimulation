@@ -1,7 +1,13 @@
 # Co-Simulation of Power Grid and Communication Network
 ## for the Master Thesis of Moritz Volkmann
 
-To run the NetSim, do the following:
+### To run the GridSim, do the following
+```bash
+pip install -r requirements.txt
+python3 GridSim.py
+```
+
+### To run the NetSim, do the following:
 
 1. If you already installed ns3, you should add a symlink to its directory to the ext directory like this:
 ```bash
