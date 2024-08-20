@@ -7,18 +7,15 @@ loop n times
     GridSim -> GridSim: Get Load Profiles for Timestep
     GridSim -> GridSim: Power Flow Calculation
     GridSim -> GridSim: Extract Measurements and create SMGW JSON objects
-    GridSim -> NetSim: Pass JSON measurement data
+    GridSim --> GridSim: Insert False Data into JSON measurement data
+    GridSim -> NetSim: Load JSON measurement data
     activate NetSim
-    activate "Tap Device"
     deactivate GridSim
     NetSim -> NetSim: Simulate sending of measurement data to Grid Operator
-    autonumber 5
-    NetSim -> "Tap Device": Send measurement data
-    "Tap Device" -> NetSim: Conduct FDIA
-    NetSim -> GridSim: Send back data received by Grid Operator
+    NetSim -> NetSim: Create JSON file of data received by Grid Operator
+    NetSim -> GridSim: Load JSON data received by Grid Operator
     activate GridSim
     deactivate NetSim
-    deactivate "Tap Device"
     GridSim -> GridSim: Run Bad Data Detection
     GridSim -> GridSim: Run State Estimation
 end

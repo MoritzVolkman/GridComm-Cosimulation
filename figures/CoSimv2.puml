@@ -6,18 +6,22 @@ loop n times
     GridSim -> GridSim: Get Load Profiles for Timestep
     GridSim -> GridSim: Power Flow Calculation
     GridSim -> GridSim: Extract Measurements and create SMGW JSON objects
-    GridSim -> "Tap Device": Pass JSON measurement data
-    activate "Tap Device"
+    GridSim --> GridSim: Insert False Data into JSON measurement data
+    GridSim -> "Grid Socket": Pass JSON measurement data
+    activate "Grid Socket"
+    activate "Net Socket"
     activate NetSim
-    "Tap Device" -> NetSim: Pass JSON measurement data
-    !pragma teoz true
+    "Net Socket" -> "Net Socket": Start listening for incoming data
+    "Grid Socket" -> "Net Socket": Pass JSON measurement data as TCP packets
+    "Net Socket" -> NetSim: Load JSON measurement data
     NetSim -> NetSim: Simulate sending of measurement data to Grid Operator
-    & "Tap Device" -> NetSim: Conduct FDIA
-    GridSim -> GridSim: Start listening for incoming data
-    NetSim -> "Tap Device": Send back data received by Grid Operator
-    "Tap Device" -> GridSim: Send back data received by Grid Operator
+    "Grid Socket" -> "Grid Socket": Start listening for incoming data
+    NetSim -> "Net Socket": pass JSON of data received by Grid Operator
+    "Net Socket" -> "Grid Socket": Send back data received by Grid Operator
+    "Grid Socket" -> GridSim: Load JSON Grid Operator Data
     deactivate NetSim
-    deactivate "Tap Device"
+    deactivate "Grid Socket"
+    deactivate "Net Socket"
     GridSim -> GridSim: Run Bad Data Detection
     GridSim -> GridSim: Run State Estimation
 end
