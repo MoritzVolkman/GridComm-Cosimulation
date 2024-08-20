@@ -144,6 +144,29 @@ void ReceivePacketTrace(Ptr<const Packet> packet, const Address& from, const Add
     std::ostringstream oss;
     oss << "Packet Received from: " << ipv4AddrFrom << " to: " << ipv4AddrTo;
     NS_LOG_UNCOND(oss.str());
+
+    // Extract the payload from the packet and convert it to a string
+    uint32_t dataSize = packet->GetSize();
+    uint8_t* buffer = new uint8_t[dataSize];
+    packet->CopyData(buffer, dataSize);
+    std::string jsonData(reinterpret_cast<char*>(buffer), dataSize);
+    delete[] buffer;
+
+    // Parse the string as JSON and save it to a file
+    try {
+        json receivedJson = json::parse(jsonData);
+
+        // Open "grid_data.json" in append mode to add the received JSON data
+        std::ofstream outFile("../../../../../PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json", std::ios::app);
+
+        // Write the JSON data to the file
+        outFile << receivedJson.dump() << std::endl;
+
+        // Close the file
+        outFile.close();
+    } catch (json::parse_error& e) {
+        NS_LOG_UNCOND("Failed to parse JSON: " + std::string(e.what()));
+    }
 }
 
 int main(int argc, char* argv[])
