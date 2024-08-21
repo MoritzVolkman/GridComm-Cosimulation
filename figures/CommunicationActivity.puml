@@ -1,0 +1,26 @@
+@startuml
+'https://plantuml.com/activity-diagram-beta
+
+start
+partition Setup{
+    :Create n+1 nodes;
+    :Install Point-to-Point Channels;
+    :Install Internet Stack;
+    if (Grid Operator Node) then (yes)
+    :Install PacketSinkApplication;
+    else (no)
+    :Install modifies OnOffApplication;
+    endif
+}
+partition Simulation{
+    while (TAC 14 Data available)
+    :Load TAC 14 JSON Data;
+    :Wrap TAC 14 Data in TCP Packets;
+    :Send TAC 14 Packets to Grid Operator Node;
+    :Collect TAC 14 Data in JSON File;
+    :Send JSON File back to Grid Sim;
+    endwhile
+}
+stop
+
+@enduml
