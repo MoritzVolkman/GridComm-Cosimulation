@@ -226,6 +226,7 @@ int main(int argc, char* argv[])
     Simulator::Run();
 	// Send the JSON data to the Python simulation via netcat
 	std::system("netcat localhost 8080 < ../../../../../PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json");
+    std::system("rm ../../../../../PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json");
     Simulator::Destroy();
     return 0;
 }
