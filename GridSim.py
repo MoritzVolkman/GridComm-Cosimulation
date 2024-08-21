@@ -122,6 +122,16 @@ def send_to_network_sim(SMGW_data, timestep):
         with open(f"./JSON/measurement_{timestep}_{i}.json", "w") as file:
             json.dump(measurement, file)
             file.close()
+    # Send the measurement data files of the timestep to the network simulator
+    # Send to port 8081, where the network simulator is listening
+    HOST = "localhost"
+    PORT = 8081
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((HOST, PORT))
+        for i in range(len(SMGW_data)):
+            with open(f"./JSON/measurement_{timestep}_{i}.json", "rb") as file:
+                s.sendall(file.read())
+                file.close()
 
 
 def receive_from_network_sim():
@@ -137,9 +147,8 @@ def receive_from_network_sim():
         s.listen()
         conn, addr = s.accept()
         with conn:
-            print("Connected by", addr)
             data = conn.recv(10240)
-            print("Received", repr(data))
+            print("Received Data from Comm-Sim")
             data = data.decode("utf-8").split("\n")
             complete_data = []
             for line in data:
@@ -149,7 +158,6 @@ def receive_from_network_sim():
                 except json.JSONDecodeError:
                     print("Error decoding line, moving on")
                     continue
-            print(complete_data)
             return complete_data
 
 
@@ -162,5 +170,5 @@ def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
 
 
 if __name__ == "__main__":
-    # main()
-    receive_from_network_sim()
+    main()
+    # receive_from_network_sim()
