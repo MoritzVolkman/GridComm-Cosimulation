@@ -2,6 +2,7 @@ import json
 import time
 import numpy as np
 import pandapower
+import socket
 import os
 import simbench as sb
 
@@ -123,27 +124,33 @@ def send_to_network_sim(SMGW_data, timestep):
             file.close()
 
 
-def receive_from_network_sim(timeout=60):
-    # Receives the measurement data from the Network Simulator
-    # The Network Simulator will write the data into a json file
-    # The function will read the json file and return the data
-    # The function will wait for the timeout in seconds
-    # If the timeout is reached, the function will return None
-    # If the file is read, the function will return the data as a list of json objects
-    # The function will return None if no file is found
-    grid_data = []
-    start = time.time()
-    while time.time() - start < timeout:
-        for file in os.listdir():
-            if file.startswith("./JSON/grid_") and file.endswith(".json"):
-                with open(file, "r") as file:
-                    measurement = json.load(file)
-                    grid_data.append(measurement)
-                    os.remove(file.name)
-    if len(grid_data) > 0:
-        return grid_data
-    else:
-        return None
+def receive_from_network_sim():
+    # Listens to messages on port 8080
+    # The messages are the measurement data from the Network Simulator
+    # The messages are then parsed and returned
+    # The messages are in the form of a file with json objects and multiple lines
+    # The json object is then returned as a list of json objects
+    HOST = "localhost"
+    PORT = 8080
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((HOST, PORT))
+        s.listen()
+        conn, addr = s.accept()
+        with conn:
+            print("Connected by", addr)
+            data = conn.recv(10240)
+            print("Received", repr(data))
+            data = data.decode("utf-8").split("\n")
+            complete_data = []
+            for line in data:
+                try:
+                    j_line = json.loads(line)
+                    complete_data.append(j_line)
+                except json.JSONDecodeError:
+                    print("Error decoding line, moving on")
+                    continue
+            print(complete_data)
+            return complete_data
 
 
 def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
@@ -155,5 +162,5 @@ def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
 
 
 if __name__ == "__main__":
-    main()
-    # receive_from_network_sim(timeout=60)
+    # main()
+    receive_from_network_sim()
