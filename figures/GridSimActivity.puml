@@ -1,0 +1,29 @@
+@startuml
+'https://plantuml.com/activity-diagram-beta
+start
+while (Load Data Available)
+    partition "Creation of Measurements" {
+        :Get Data from Simbench Load Profile;
+        :Run Power Flow Calculation;
+        :Select Busses with SMGW;
+        if (Measurement Factor Set) then (yes)
+            :Calculate Measurements from Power Flow and Factor;
+        else (no)
+            :Take Power Flow Result;
+        endif
+        :Create Measurement Data;
+        if (FDIA) then (yes)
+            :Inject FDIA Measurements into Measurement Data;
+        endif
+            :Build SMGW JSON Files;
+    }
+    :Send to Communication Simulator;
+    :Take Grid Operator Data from Communication Simulator;
+    partition "State Estimation" {
+        :Run Bad Data Detection;
+        :Run State Estimation;
+    }
+endwhile
+stop
+
+@enduml
