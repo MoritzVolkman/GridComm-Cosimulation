@@ -6,34 +6,6 @@ import socket
 import os
 import simbench as sb
 
-# Example measurement data as in the thesis
-example_measurement = {
-          "MeasurementData": {
-            "ActivePower": 123.45,
-            "ReactivePower": 67.89,
-            "ApparentPower": 130.00,
-            "PowerFactor": 0.95,
-            "Voltage": 230,
-            "Current": 5.4,
-            "Frequency": 50,
-            "EnergyConsumption": 1500.67,
-            "MaximumDemand": 120,
-            "MeterStatus": "ok",
-            "EventLogs": [
-              "Event1: Power Failure at 03:00",
-              "Event2: Power Restoration at 03:10"
-            ]
-          },
-          "UserInformation": {
-            "ConsumerID": 0,
-            "ContractAccountNumber": "CA7891011",
-            "MeterPointAdministrationNumber": "MPAN987654",
-            "AggregatorID": "AG87654321",
-            "SupplierID": "SP12345678",
-            "DirectMarketerID": "DM12345678"
-          }
-        }
-
 
 def main():
     # Load the Simbench data and configure the grid
