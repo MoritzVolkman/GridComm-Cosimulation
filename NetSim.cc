@@ -224,8 +224,8 @@ int main(int argc, char* argv[])
     pointToPoint.EnablePcapAll("../../../../../PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
 
     Simulator::Run();
+	// Send the JSON data to the Python simulation via netcat
+	std::system("netcat localhost 8080 < ../../../../../PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json");
     Simulator::Destroy();
-    // Send the JSON data to the Python simulation via netcat
-    std::system("netcat localhost 8080 < ../../../../../PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json");
     return 0;
 }
