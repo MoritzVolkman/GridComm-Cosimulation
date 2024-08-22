@@ -43,13 +43,13 @@ def plot_differences(differences):
     # Plot the differences between the correct and the FDIA data
     # The differences are calculated as the difference between the correct and the FDIA data
     # The differences are then plotted for each bus
-    differences["d_vm_pu"] = differences["vm_pu", "self"]-differences["vm_pu", "other"]
-    differences["d_p_mw"] = differences["p_mw", "self"]-differences["p_mw", "other"]
-    differences["d_q_mvar"] = differences["q_mvar", "self"]-differences["q_mvar", "other"]
-    differences["d_va_degree"] = differences["va_degree", "self"]-differences["va_degree", "other"]
+    differences["d_vm_pu"] = ((differences["vm_pu", "self"]-differences["vm_pu", "other"])/differences["vm_pu", "other"])*100
+    differences["d_p_mw"] = ((differences["p_mw", "self"]-differences["p_mw", "other"])/differences["p_mw", "other"])*100
+    differences["d_q_mvar"] = ((differences["q_mvar", "self"]-differences["q_mvar", "other"])/differences["q_mvar", "other"])*100
+    differences["d_va_degree"] = ((differences["va_degree", "self"]-differences["va_degree", "other"])/differences["va_degree", "other"])*100
     differences.drop(columns=["vm_pu", "p_mw", "q_mvar", "va_degree"], inplace=True)
-    differences.iloc[0:42].plot(subplots=True,
-                     title="Differences between correct and FDIA data")
+    differences.iloc[0:42].plot(subplots=True,xlabel="Bus Number", ylabel="Difference in %",
+                     title=["Voltage Difference", "Active Power Difference", "Reactive Power Difference", "Voltage Angle Difference"])
     plt.show()
 
 
