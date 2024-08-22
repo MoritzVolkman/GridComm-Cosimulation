@@ -30,7 +30,7 @@ def main():
         run_state_estimation(net)
         correct_data = net.res_bus_est
         # Conduct FDIA on the measurement data
-        fdia.random_fdia([0, 1, 2], SMGW_data)
+        fdia.random_fdia([40, 41, 42], SMGW_data)
         # send_to_network_sim(SMGW_data, i)
         # parse the measurement data from the network simulator SMGW_data will be replaced by GO_data
         parse_measurement(SMGW_data, net) #replace SMGW_data with GO_data to incorporate network sim
