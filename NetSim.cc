@@ -5,9 +5,12 @@
 #include "ns3/applications-module.h"
 #include "ns3/pcap-file-wrapper.h"
 
+#include <nlohmann/json.hpp>
+
+#include "Network.hpp"
+
 #include <fstream>
 #include <sstream>
-#include <nlohmann/json.hpp>
 
 using namespace ns3;
 using json = nlohmann::json;
@@ -83,9 +86,8 @@ void MyApp::StopApplication(void)
 {
     m_running = false;
 
-    if (m_sendEvent.IsRunning())
-    {
-        Simulator::Cancel(m_sendEvent);
+    if (m_sendEvent.IsPending()) {
+      Simulator::Cancel(m_sendEvent);
     }
 
     if (m_socket)
@@ -172,6 +174,10 @@ void ReceivePacketTrace(Ptr<const Packet> packet, const Address& from, const Add
 int main(int argc, char* argv[])
 {
     LogComponentEnable("TcpExample", LOG_LEVEL_INFO);
+
+    auto message = network::wait_for_message(10020);
+    std::string msg_str = std::string{message.begin(), message.end()};
+    std::cout << msg_str << std::endl;
 
     std::string jsonData[9];
     MyApp appInstance;

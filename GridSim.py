@@ -9,9 +9,14 @@ import simbench as sb
 import FDIA as fdia
 import matplotlib.pyplot as plt
 from pandapower.plotting.plotly import simple_plotly, pf_res_plotly
+import Network
 
 
 def main():
+
+    Network.send_message("127.0.0.1", 10020, "Howdie Partner")
+    exit()
+
     # Load the Simbench data and configure the grid
     sb_code = "1-LV-semiurb4--0-sw"
     net = sb.get_simbench_net(sb_code)
@@ -204,7 +209,6 @@ def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
             elm = elm_param[0]
             param = elm_param[1]
             net[elm].loc[:, param] = absolute_values_dict[elm_param].loc[case_or_time_step]
-
 
 
 if __name__ == "__main__":
