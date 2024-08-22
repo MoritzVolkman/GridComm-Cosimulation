@@ -8,6 +8,7 @@ import math
 import simbench as sb
 import FDIA as fdia
 import matplotlib.pyplot as plt
+from pandapower.plotting.plotly import simple_plotly, pf_res_plotly
 
 
 def main():
@@ -30,7 +31,9 @@ def main():
         run_state_estimation(net)
         correct_data = net.res_bus_est
         # Conduct FDIA on the measurement data
-        fdia.random_fdia([40, 41, 42], SMGW_data)
+        attack_buses = [40, 41, 42]
+        fdia.random_fdia(attack_buses, SMGW_data)
+        plot_attack(net, attack_buses)
         # send_to_network_sim(SMGW_data, i)
         # parse the measurement data from the network simulator SMGW_data will be replaced by GO_data
         parse_measurement(SMGW_data, net) #replace SMGW_data with GO_data to incorporate network sim
@@ -52,6 +55,25 @@ def plot_differences(differences):
     print(differences.mean())
     differences.iloc[0:42].plot(subplots=True,xlabel="Bus Number", ylabel="Difference in %",
                      title=["Voltage Difference", "Active Power Difference", "Reactive Power Difference", "Voltage Angle Difference"])
+    plt.show()
+
+
+def plot_attack(net, attack_buses):
+    # Take the geodata of the attack_buses from net["bus_geodata"] and plot them as red dots
+    # Take the geodata of the rest of the buses from net["bus_geodata"] and plot them as blue dots
+    # Takes the start and end points of the lines "from_bus" and "to_bus" from net["line"] and plots them
+    bus_geodata = net["bus_geodata"]
+    attack_geodata = bus_geodata.loc[attack_buses]
+    rest_geodata = bus_geodata.drop(attack_buses)
+    line_geodata = net["line"]
+    for line in line_geodata.iterrows():
+        x0 = bus_geodata.loc[line[1]["from_bus"]]["x"]
+        y0 = bus_geodata.loc[line[1]["from_bus"]]["y"]
+        x1 = bus_geodata.loc[line[1]["to_bus"]]["x"]
+        y1 = bus_geodata.loc[line[1]["to_bus"]]["y"]
+        plt.plot([x0, x1], [y0, y1], color="black")
+    plt.scatter(rest_geodata["x"], rest_geodata["y"], color="blue")
+    plt.scatter(attack_geodata["x"], attack_geodata["y"], color="red")
     plt.show()
 
 

@@ -10,3 +10,4 @@ deepdiff
 pytest
 pandapower
 simbench
+plotly
