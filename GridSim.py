@@ -7,6 +7,7 @@ import os
 import math
 import simbench as sb
 import FDIA as fdia
+import matplotlib.pyplot as plt
 
 
 def main():
@@ -21,17 +22,35 @@ def main():
         pandapower.runpp(net, calculate_voltage_angles=True)
         # Prints the head of the Powerflow results dataframe
         # -> vm_pu - Voltage in kW, p_mw, q_mvar - Power (Active and Reactive) in MW, va_degree - Voltage Angle in degree
-        print(net.res_bus.head())
+        # print(net.res_bus.head())
         # create the measurement data for the time step
         SMGW_data = create_measurement(net)
-        # print(SMGW_data)
-        send_to_network_sim(SMGW_data, i)
-        # send the measurement data to the network simulator
-        # GO_data = send_to_network_sim(measurement)
+        # parse measurements and run state estimation to see effect of FDIA
+        parse_measurement(SMGW_data, net)
+        run_state_estimation(net)
+        correct_data = net.res_bus_est
+        # Conduct FDIA on the measurement data
+        fdia.random_fdia([0, 1, 2], SMGW_data)
+        # send_to_network_sim(SMGW_data, i)
         # parse the measurement data from the network simulator SMGW_data will be replaced by GO_data
         parse_measurement(SMGW_data, net) #replace SMGW_data with GO_data to incorporate network sim
         run_state_estimation(net)
-        # print(net.res_bus_est.head())
+        differences = net.res_bus_est.compare(correct_data)
+        plot_differences(differences)
+
+
+def plot_differences(differences):
+    # Plot the differences between the correct and the FDIA data
+    # The differences are calculated as the difference between the correct and the FDIA data
+    # The differences are then plotted for each bus
+    differences["d_vm_pu"] = differences["vm_pu", "self"]-differences["vm_pu", "other"]
+    differences["d_p_mw"] = differences["p_mw", "self"]-differences["p_mw", "other"]
+    differences["d_q_mvar"] = differences["q_mvar", "self"]-differences["q_mvar", "other"]
+    differences["d_va_degree"] = differences["va_degree", "self"]-differences["va_degree", "other"]
+    differences.drop(columns=["vm_pu", "p_mw", "q_mvar", "va_degree"], inplace=True)
+    differences.iloc[0:42].plot(subplots=True,
+                     title="Differences between correct and FDIA data")
+    plt.show()
 
 
 def run_state_estimation(net):
