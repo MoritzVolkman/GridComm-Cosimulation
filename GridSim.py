@@ -4,6 +4,7 @@ import numpy as np
 import pandapower
 import socket
 import os
+import math
 import simbench as sb
 
 
@@ -16,8 +17,10 @@ def main():
         # Do a power flow calculation for each time step
         apply_absolute_values(net, profiles, i)
         net.trafo.tap_pos = 1
-        pandapower.runpp(net)
-        # print(net.res_bus.head())
+        pandapower.runpp(net, calculate_voltage_angles=True)
+        # Prints the head of the Powerflow results dataframe
+        # -> vm_pu - Voltage in kW, p_mw, q_mvar - Power (Active and Reactive) in MW, va_degree - Voltage Angle in degree
+        print(net.res_bus.head())
         # create the measurement data for the time step
         SMGW_data = create_measurement(net)
         # print(SMGW_data)
@@ -73,7 +76,7 @@ def create_measurement(net, amount=1):
                     "ActivePower": net.res_bus.loc[bus]["p_mw"],
                     "ReactivePower": net.res_bus.loc[bus]["q_mvar"],
                     "ApparentPower": "nA",
-                    "PowerFactor": "nA",
+                    "PowerFactor": math.cos(net.res_bus.loc[bus]["va_degree"]),
                     "Voltage": net.res_bus.loc[bus]["vm_pu"],
                     "Current": "nA",
                     "Frequency": "nA",
@@ -108,10 +111,14 @@ def send_to_network_sim(SMGW_data, timestep):
     PORT = 8081
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
+        """
         for i in range(len(SMGW_data)):
             with open(f"./JSON/measurement_{timestep}_{i}.json", "rb") as file:
                 s.sendall(file.read())
                 file.close()
+        """
+        # Seems to be too long for netcat, maybe has to be split up
+        s.sendall(json.dumps(SMGW_data).encode("utf-8"))
 
 
 def receive_from_network_sim():
