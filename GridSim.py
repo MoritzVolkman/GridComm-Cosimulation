@@ -48,6 +48,8 @@ def plot_differences(differences):
     differences["d_q_mvar"] = ((differences["q_mvar", "self"]-differences["q_mvar", "other"])/differences["q_mvar", "other"])*100
     differences["d_va_degree"] = ((differences["va_degree", "self"]-differences["va_degree", "other"])/differences["va_degree", "other"])*100
     differences.drop(columns=["vm_pu", "p_mw", "q_mvar", "va_degree"], inplace=True)
+    print("Average Differences in %: ")
+    print(differences.mean())
     differences.iloc[0:42].plot(subplots=True,xlabel="Bus Number", ylabel="Difference in %",
                      title=["Voltage Difference", "Active Power Difference", "Reactive Power Difference", "Voltage Angle Difference"])
     plt.show()
