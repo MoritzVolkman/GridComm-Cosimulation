@@ -15,6 +15,8 @@ import Network
 def main():
 
     Network.send_message("127.0.0.1", 10020, "Howdie Partner")
+    response = Network.wait_for_message(10021)
+    print(response)
     exit()
 
     # Load the Simbench data and configure the grid

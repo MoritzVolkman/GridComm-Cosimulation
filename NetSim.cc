@@ -179,6 +179,13 @@ int main(int argc, char* argv[])
     std::string msg_str = std::string{message.begin(), message.end()};
     std::cout << msg_str << std::endl;
 
+    // wait for a second to get the python script into receiving mode
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    std::string response = "And Howdie to you, my friend!";
+    network::send_message("127.0.0.1", 10021, response);
+
+    return 0;
     std::string jsonData[9];
     MyApp appInstance;
     appInstance.LoadJsonData("../../../../../PycharmProjects/GridComm-Cosimulation/JSON/", jsonData, 9);
