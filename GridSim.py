@@ -63,6 +63,7 @@ def plot_differences(differences):
     differences.iloc[0:42].plot(subplots=True,xlabel="Bus Number", ylabel="Difference in %",
                      title=["Voltage Difference", "Active Power Difference", "Reactive Power Difference", "Voltage Angle Difference"])
     plt.show()
+    return differences
 
 
 def plot_attack(net, attack_buses):
@@ -213,6 +214,28 @@ def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
             net[elm].loc[:, param] = absolute_values_dict[elm_param].loc[case_or_time_step]
 
 
+def train_fdia():
+    sb_code = "1-LV-semiurb4--0-sw"
+    net = sb.get_simbench_net(sb_code)
+    profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
+    # Take the load profile for a random timestep -> could be any other timestep
+    apply_absolute_values(net, profiles, 3)
+    net.trafo.tap_pos = 1
+    pandapower.runpp(net, calculate_voltage_angles=True)
+    SMGW_data = create_measurement(net)
+    parse_measurement(SMGW_data, net)
+    run_state_estimation(net)
+    correct_data = net.res_bus_est
+    # Let the FDIA attack the grid at every bus#
+    for i in range(len(net.bus)):
+        fdia.uninformed_fdia([i], SMGW_data)
+        parse_measurement(SMGW_data, net)
+        run_state_estimation(net)
+        differences = net.res_bus_est.compare(correct_data)
+        print(plot_differences(differences).mean())
+
+
 if __name__ == "__main__":
-    main()
+    # main()
     # receive_from_network_sim()
+    train_fdia()
