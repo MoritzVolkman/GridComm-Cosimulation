@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import simbench as sb
 
 # Injects false data into the measurement data for the specified busses
 # The mode specifies the type of false data that is injected
@@ -79,10 +80,8 @@ def plot_attack(net, attack_buses):
         plt.plot([x0, x1], [y0, y1], color="black")
     plt.scatter(rest_geodata["x"], rest_geodata["y"], color="blue")
     plt.scatter(attack_geodata["x"], attack_geodata["y"], color="red")
-    """
-    # Way too small to read, maybe add a text box for each bus
-    # Add the measurement data for each bus to the plot such as (v = Voltage, p = Active Power, q = Reactive Power)
-    for bus in net.res_bus.index:
-        plt.text(bus_geodata.loc[bus]["x"], bus_geodata.loc[bus]["y"], f"v: {net.res_bus.loc[bus]['vm_pu']:.2f}\np: {net.res_bus.loc[bus]['p_mw']:.2f}\nq: {net.res_bus.loc[bus]['q_mvar']:.2f}")
-    """
+    # Add the bus number next to each bus and move them a bit away from the bus
+    for bus in bus_geodata.iterrows():
+        plt.text(bus[1]["x"], bus[1]["y"], bus[0])
     plt.show()
+
