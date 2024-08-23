@@ -17,6 +17,7 @@ def main():
     # Load the Simbench data and configure the grid
     sb_code = "1-LV-semiurb4--0-sw"
     net = sb.get_simbench_net(sb_code)
+
     profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
     for i in range(3): # normally should be 96, 3 just for testing
         # Do a power flow calculation for each time step
@@ -209,6 +210,6 @@ def train_fdia():
 
 
 if __name__ == "__main__":
-    # main()
+    main()
     # receive_from_network_sim()
-    train_fdia()
+    # train_fdia()
