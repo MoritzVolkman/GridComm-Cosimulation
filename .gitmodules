@@ -1,3 +1,6 @@
 [submodule "ext/ns3"]
 	path = ext/ns3
 	url = https://gitlab.com/nsnam/ns-3-dev
+[submodule "ext/boost"]
+	path = ext/boost
+	url = https://github.com/boostorg/boost.git

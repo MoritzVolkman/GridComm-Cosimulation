@@ -23,7 +23,7 @@ public:
     MyApp();
     virtual ~MyApp();
 
-    void LoadJsonData(std::string path, std::string jsonData[], int size);
+    void LoadJsonData(std::string path, std::vector<std::string> jsonData);
     void Setup(Ptr<Socket> socket, Address address, uint32_t packetSize,
                uint32_t nPackets, DataRate dataRate, std::string jsonData);
 
@@ -116,9 +116,9 @@ void MyApp::ScheduleTx(void)
     }
 }
 
-void MyApp::LoadJsonData(std::string path, std::string jsonData[], int size)
+void MyApp::LoadJsonData(std::string path, std::vector<std::string> jsonData)
 {
-    for (int i = 0; i < size; ++i)
+    for (int i = 0; i < jsonData.size(); ++i)
     {
         std::ifstream file(path + "measurement_0_" + std::to_string(i) + ".json");
         if (file)
@@ -175,20 +175,16 @@ int main(int argc, char* argv[])
 {
     LogComponentEnable("TcpExample", LOG_LEVEL_INFO);
 
-    auto message = network::wait_for_message(10020);
-    std::string msg_str = std::string{message.begin(), message.end()};
-    std::cout << msg_str << std::endl;
+    // Receive `n_msgs` from the GridSim.py for further processinc
+    const std::size_t n_msgs = 9;
+    std::vector<std::string> jsonData;
+    for (int i = 0; i < n_msgs; ++i) {
+      auto message = network::wait_for_message(8081 + i);
+      jsonData.push_back({message.begin(), message.end()});
+    }
 
-    // wait for a second to get the python script into receiving mode
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    std::string response = "And Howdie to you, my friend!";
-    network::send_message("127.0.0.1", 10021, response);
-
-    return 0;
-    std::string jsonData[9];
     MyApp appInstance;
-    appInstance.LoadJsonData("../../../../../PycharmProjects/GridComm-Cosimulation/JSON/", jsonData, 9);
+    appInstance.LoadJsonData("../../../../../PycharmProjects/GridComm-Cosimulation/JSON/", jsonData);
 
     NodeContainer nodes;
     nodes.Create(10);

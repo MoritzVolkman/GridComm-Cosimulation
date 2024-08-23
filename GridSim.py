@@ -16,11 +16,6 @@ import Network
 
 def main():
 
-    Network.send_message("127.0.0.1", 10020, "Howdie Partner")
-    response = Network.wait_for_message(10021)
-    print(response)
-    exit()
-
     # Load the Simbench data and configure the grid
     sb_code = "1-LV-semiurb4--0-sw"
     net = sb.get_simbench_net(sb_code)
@@ -177,21 +172,10 @@ def send_to_network_sim(SMGW_data, timestep):
         with open(f"./JSON/measurement_{timestep}_{i}.json", "w") as file:
             json.dump(measurement, file)
             file.close()
-    # Send the measurement data files of the timestep to the network simulator
-    # Send to port 8081, where the network simulator is listening
-    HOST = "localhost"
-    PORT = 8081
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((HOST, PORT))
-        """
-        for i in range(len(SMGW_data)):
-            with open(f"./JSON/measurement_{timestep}_{i}.json", "rb") as file:
-                s.sendall(file.read())
-                file.close()
-        """
-        # Seems to be too long for netcat, maybe has to be split up
-        s.sendall(json.dumps(SMGW_data).encode("utf-8"))
 
+        # Send the measurement data files of the timestep to the network simulator
+        # Send to port 8081, where the network simulator is listening
+        Network.send_message("127.0.0.1", 8081 + i, json.dumps(measurement))
 
 def receive_from_network_sim():
     # Listens to messages on port 8080
