@@ -31,6 +31,7 @@ def main():
         # create the measurement data for the time step
         SMGW_data = create_measurement(net)
         # parse measurements and run state estimation to see effect of FDIA
+        send_to_network_sim(SMGW_data, i)
         parse_measurement(SMGW_data, net)
         run_state_estimation(net)
         correct_data = net.res_bus_est
@@ -248,6 +249,6 @@ def train_fdia():
 
 
 if __name__ == "__main__":
-    # main()
+    main()
     # receive_from_network_sim()
-    train_fdia()
+    # train_fdia()
