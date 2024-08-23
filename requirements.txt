@@ -11,3 +11,5 @@ pytest
 pandapower
 simbench
 plotly
+tensorflow
+scikit-learn
