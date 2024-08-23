@@ -100,9 +100,9 @@ def run_state_estimation(net):
         bad_data = pandapower.estimation.chi2_analysis(net, init="slack")
         if bad_data:
             print("Bad Data Detected")
-            pandapower.estimation.remove_bad_data(net, init="slack")
     except AttributeError:
         print("No Bad Data Detected")
+    pandapower.estimation.remove_bad_data(net, init="slack")
     # Runs the state estimation
     try:
         pandapower.estimation.estimate(net, init="slack", calculate_voltage_angles=True, zero_injection="aux_bus")
@@ -217,35 +217,45 @@ def train_fdia():
     sb_code = "1-LV-semiurb4--0-sw"
     net = sb.get_simbench_net(sb_code)
     profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
-    # Take the load profile for a random timestep -> could be any other timestep
-    apply_absolute_values(net, profiles, 3)
-    net.trafo.tap_pos = 1
-    pandapower.runpp(net, calculate_voltage_angles=True)
-    SMGW_data = create_measurement(net)
-    parse_measurement(SMGW_data, net)
-    run_state_estimation(net)
-    correct_data = net.res_bus_est
-    effect = pd.DataFrame(columns="vm_pu p_mw q_mvar va_degree".split())
-    # Let the FDIA attack the grid at every bus
-    for i in range(len(net.bus)):
-        fdia.random_fdia([i], SMGW_data)
+    # Create a counter that is incremented every time a bus is selected as the most effective bus for one of the four values
+    # The counter is then used to select the most effective bus for the FDIA attack
+    counter = pd.DataFrame(columns="vm_pu va_degree p_mw q_mvar".split())
+    for j in range(96):
+        # Take the load profile for a random timestep -> could be any other timestep
+        apply_absolute_values(net, profiles, j)
+        net.trafo.tap_pos = 1
+        pandapower.runpp(net, calculate_voltage_angles=True)
+        SMGW_data = create_measurement(net)
         parse_measurement(SMGW_data, net)
         run_state_estimation(net)
-        differences = compute_differences(net.res_bus_est, correct_data).mean().transpose()
-        # Add the mean of the differences to the effect dataframe
-        effect = pd.concat([effect, differences], ignore_index=True, axis=1)
-    # Plot the effect of the FDIA attack on the grid
-    effect = effect.transpose().drop([0,1,2,3])
-    print(f"Maximum Effect on Voltage: Bus {effect['d_vm_pu'].idxmax()-4} with {effect['d_vm_pu'].max()}%, \n"
-          f"Maximum Effect on Active Power: Bus {effect['d_p_mw'].idxmax()-4} with {effect['d_p_mw'].max()}%, \n"
-          f"Maximum Effect on Reactive Power: Bus {effect['d_q_mvar'].idxmax()-4} with {effect['d_q_mvar'].max()}%, \n"
-          f"Maximum Effect on Voltage Angle: Bus {effect['d_va_degree'].idxmax()-4} with {effect['d_va_degree'].max()}%")
-    effect.plot(subplots=True, xlabel="Bus Number", ylabel="Difference in %",
-                title=["Voltage Difference", "Active Power Difference", "Reactive Power Difference", "Voltage Angle Difference"])
-    plt.show()
-    print(effect)
-    plot_attack(net, [effect['d_vm_pu'].idxmax()-4, effect['d_p_mw'].idxmax()-4,
-                      effect['d_q_mvar'].idxmax()-4, effect['d_va_degree'].idxmax()-4])
+        correct_data = net.res_bus_est
+        effect = pd.DataFrame(columns="vm_pu va_degree p_mw q_mvar".split())
+        # Let the FDIA attack the grid at every bus
+        for i in range(len(net.bus)):
+            fdia.random_fdia([i], SMGW_data)
+            parse_measurement(SMGW_data, net)
+            run_state_estimation(net)
+            differences = compute_differences(net.res_bus_est, correct_data).mean().transpose()
+            # Add the mean of the differences to the effect dataframe
+            effect = pd.concat([effect, differences], ignore_index=True, axis=1)
+        # Plot the effect of the FDIA attack on the grid
+        effect = effect.transpose().drop([0,1,2,3]).abs()
+        effect.reset_index(drop=True, inplace=True)
+        """print(f"Maximum Effect on Voltage: Bus {effect['d_vm_pu'].idxmax()} with {effect['d_vm_pu'].max()}%, \n"
+              f"Maximum Effect on Active Power: Bus {effect['d_p_mw'].idxmax()} with {effect['d_p_mw'].max()}%, \n"
+              f"Maximum Effect on Reactive Power: Bus {effect['d_q_mvar'].idxmax()} with {effect['d_q_mvar'].max()}%, \n"
+              f"Maximum Effect on Voltage Angle: Bus {effect['d_va_degree'].idxmax()} with {effect['d_va_degree'].max()}%")
+        effect.plot(subplots=True, xlabel="Bus Number", ylabel="Difference in %",
+                    title=["Voltage Difference", "Active Power Difference", "Reactive Power Difference", "Voltage Angle Difference"])
+        plt.show()
+        plot_attack(net, [effect['d_vm_pu'].idxmax(), effect['d_va_degree'].idxmax(), effect['d_p_mw'].idxmax(),
+                          effect['d_q_mvar'].idxmax()])"""
+        # Add the most effective bus to the counter
+        print(j)
+        counter.loc[j] = effect.idxmax().values
+    # Print the most effective bus for each value
+    print(counter.mode())
+    plot_attack(net, counter.mode().iloc[0])
 
 
 if __name__ == "__main__":
