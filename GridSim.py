@@ -209,6 +209,6 @@ def train_fdia():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
     # receive_from_network_sim()
-    # train_fdia()
+    train_fdia()
