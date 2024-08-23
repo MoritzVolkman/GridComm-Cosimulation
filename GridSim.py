@@ -14,7 +14,6 @@ import Network
 
 
 def main():
-
     # Load the Simbench data and configure the grid
     sb_code = "1-LV-semiurb4--0-sw"
     net = sb.get_simbench_net(sb_code)
@@ -25,7 +24,6 @@ def main():
         net.trafo.tap_pos = 1
         pandapower.runpp(net, calculate_voltage_angles=True)
         # Prints the head of the Powerflow results dataframe
-        # -> vm_pu - Voltage in kW, p_mw, q_mvar - Power (Active and Reactive) in MW, va_degree - Voltage Angle in degree
         # print(net.res_bus.head())
         # create the measurement data for the time step
         SMGW_data = create_measurement(net)
@@ -43,9 +41,6 @@ def main():
         parse_measurement(SMGW_data, net) #replace SMGW_data with GO_data to incorporate network sim
         run_state_estimation(net)
         fdia.plot_differences(correct_data, net.res_bus_est)
-
-
-
 
 
 def run_state_estimation(net):
@@ -131,6 +126,7 @@ def send_to_network_sim(SMGW_data, timestep):
         # Send the measurement data files of the timestep to the network simulator
         # Send to port 8081, where the network simulator is listening
         Network.send_message("127.0.0.1", 8081 + i, json.dumps(measurement))
+
 
 def receive_from_network_sim():
     # Listens to messages on port 8080
