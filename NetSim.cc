@@ -184,7 +184,7 @@ int main(int argc, char* argv[])
     }
 
     MyApp appInstance;
-    appInstance.LoadJsonData("../../../../../PycharmProjects/GridComm-Cosimulation/JSON/", jsonData);
+    appInstance.LoadJsonData("~/PycharmProjects/GridComm-Cosimulation/JSON/", jsonData);
 
     NodeContainer nodes;
     nodes.Create(10);
@@ -230,12 +230,12 @@ int main(int argc, char* argv[])
     Config::ConnectWithoutContext("/NodeList/9/ApplicationList/*/$ns3::PacketSink/RxWithAddresses",
                                   MakeCallback(&ReceivePacketTrace));
 
-    pointToPoint.EnablePcapAll("../../../../../PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
+    pointToPoint.EnablePcapAll("~/PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
 
     Simulator::Run();
 	// Send the JSON data to the Python simulation via netcat
-	std::system("netcat localhost 8080 < ../../../../../PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json");
-    std::system("rm ../../../../../PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json");
+	std::system("netcat localhost 8080 < ~/PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json");
+    std::system("rm ~/PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json");
     Simulator::Destroy();
     return 0;
 }
