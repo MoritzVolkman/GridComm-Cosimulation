@@ -5,6 +5,8 @@ import pandapower
 import socket
 import os
 import math
+
+import pandas as pd
 import simbench as sb
 import FDIA as fdia
 import matplotlib.pyplot as plt
@@ -45,24 +47,29 @@ def main():
         # parse the measurement data from the network simulator SMGW_data will be replaced by GO_data
         parse_measurement(SMGW_data, net) #replace SMGW_data with GO_data to incorporate network sim
         run_state_estimation(net)
-        differences = net.res_bus_est.compare(correct_data)
-        plot_differences(differences)
+        plot_differences(correct_data, net.res_bus_est)
 
 
-def plot_differences(differences):
+def plot_differences(correct_data, fdia_data):
     # Plot the differences between the correct and the FDIA data
     # The differences are calculated as the difference between the correct and the FDIA data
     # The differences are then plotted for each bus
-    differences["d_vm_pu"] = ((differences["vm_pu", "self"]-differences["vm_pu", "other"])/differences["vm_pu", "other"])*100
-    differences["d_p_mw"] = ((differences["p_mw", "self"]-differences["p_mw", "other"])/differences["p_mw", "other"])*100
-    differences["d_q_mvar"] = ((differences["q_mvar", "self"]-differences["q_mvar", "other"])/differences["q_mvar", "other"])*100
-    differences["d_va_degree"] = ((differences["va_degree", "self"]-differences["va_degree", "other"])/differences["va_degree", "other"])*100
-    differences.drop(columns=["vm_pu", "p_mw", "q_mvar", "va_degree"], inplace=True)
+    differences = compute_differences(correct_data, fdia_data)
     print("Average Differences in %: ")
     print(differences.mean())
     differences.iloc[0:42].plot(subplots=True,xlabel="Bus Number", ylabel="Difference in %",
                      title=["Voltage Difference", "Active Power Difference", "Reactive Power Difference", "Voltage Angle Difference"])
     plt.show()
+    return differences
+
+
+def compute_differences(correct_data, fdia_data):
+    # Computes the percentage differences between the correct and the FDIA data and puts them in the differences dataframe
+    # The differences are calculated as (FDIA - Correct) / Correct * 100
+
+    differences = pd.DataFrame()
+    for column in correct_data.columns:
+        differences[f"d_{column}"] = ((fdia_data[column] - correct_data[column]) / correct_data[column]) * 100
     return differences
 
 
@@ -93,11 +100,18 @@ def plot_attack(net, attack_buses):
 
 def run_state_estimation(net):
     # Detects if Bad Data was detected and removes it
-    if pandapower.estimation.chi2_analysis(net, init="slack"):
-        print("Bad Data Detected")
-    pandapower.estimation.remove_bad_data(net, init="slack")
+    try:
+        bad_data = pandapower.estimation.chi2_analysis(net, init="slack")
+        if bad_data:
+            print("Bad Data Detected")
+            pandapower.estimation.remove_bad_data(net, init="slack")
+    except AttributeError:
+        print("No Bad Data Detected")
     # Runs the state estimation
-    pandapower.estimation.estimate(net, init="slack", calculate_voltage_angles=True, zero_injection="aux_bus")
+    try:
+        pandapower.estimation.estimate(net, init="slack", calculate_voltage_angles=True, zero_injection="aux_bus")
+    except ValueError:
+        print("State Estimation Failed")
 
 
 def parse_measurement(measurements, net):
@@ -226,13 +240,27 @@ def train_fdia():
     parse_measurement(SMGW_data, net)
     run_state_estimation(net)
     correct_data = net.res_bus_est
-    # Let the FDIA attack the grid at every bus#
+    effect = pd.DataFrame(columns="vm_pu p_mw q_mvar va_degree".split())
+    # Let the FDIA attack the grid at every bus
     for i in range(len(net.bus)):
-        fdia.uninformed_fdia([i], SMGW_data)
+        fdia.random_fdia([i], SMGW_data)
         parse_measurement(SMGW_data, net)
         run_state_estimation(net)
-        differences = net.res_bus_est.compare(correct_data)
-        print(plot_differences(differences).mean())
+        differences = compute_differences(net.res_bus_est, correct_data).mean().transpose()
+        # Add the mean of the differences to the effect dataframe
+        effect = pd.concat([effect, differences], ignore_index=True, axis=1)
+    # Plot the effect of the FDIA attack on the grid
+    effect = effect.transpose().drop([0,1,2,3])
+    print(f"Maximum Effect on Voltage: Bus {effect['d_vm_pu'].idxmax()-4} with {effect['d_vm_pu'].max()}%, \n"
+          f"Maximum Effect on Active Power: Bus {effect['d_p_mw'].idxmax()-4} with {effect['d_p_mw'].max()}%, \n"
+          f"Maximum Effect on Reactive Power: Bus {effect['d_q_mvar'].idxmax()-4} with {effect['d_q_mvar'].max()}%, \n"
+          f"Maximum Effect on Voltage Angle: Bus {effect['d_va_degree'].idxmax()-4} with {effect['d_va_degree'].max()}%")
+    effect.plot(subplots=True, xlabel="Bus Number", ylabel="Difference in %",
+                title=["Voltage Difference", "Active Power Difference", "Reactive Power Difference", "Voltage Angle Difference"])
+    plt.show()
+    print(effect)
+    plot_attack(net, [effect['d_vm_pu'].idxmax()-4, effect['d_p_mw'].idxmax()-4,
+                      effect['d_q_mvar'].idxmax()-4, effect['d_va_degree'].idxmax()-4])
 
 
 if __name__ == "__main__":

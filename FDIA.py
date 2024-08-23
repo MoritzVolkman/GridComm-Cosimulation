@@ -31,7 +31,7 @@ def uninformed_fdia(busses, measurements):
                 if measurement["UserInformation"]["ConsumerID"] == bus:
                     measurement["MeasurementData"]["ActivePower"] = 0.3
                     measurement["MeasurementData"]["ReactivePower"] = -0.005
-                    measurement["MeasurementData"]["Voltage"] = 0.5
+                    measurement["MeasurementData"]["Voltage"] = 0.999
 
 
 def informed_fdia(busses, measurements):
