@@ -5,7 +5,6 @@ import pandapower
 import socket
 import os
 import math
-
 import pandas as pd
 import simbench as sb
 import FDIA as fdia
@@ -15,10 +14,10 @@ import Network
 
 
 def main():
-
     # Load the Simbench data and configure the grid
     sb_code = "1-LV-semiurb4--0-sw"
     net = sb.get_simbench_net(sb_code)
+
     profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
     for i in range(3): # normally should be 96, 3 just for testing
         # Do a power flow calculation for each time step
@@ -26,7 +25,6 @@ def main():
         net.trafo.tap_pos = 1
         pandapower.runpp(net, calculate_voltage_angles=True)
         # Prints the head of the Powerflow results dataframe
-        # -> vm_pu - Voltage in kW, p_mw, q_mvar - Power (Active and Reactive) in MW, va_degree - Voltage Angle in degree
         # print(net.res_bus.head())
         # create the measurement data for the time step
         SMGW_data = create_measurement(net)
@@ -39,60 +37,12 @@ def main():
         # Conduct FDIA on the measurement data
         attack_buses = [40, 41, 42]
         fdia.random_fdia(attack_buses, SMGW_data)
-        plot_attack(net, attack_buses)
+        fdia.plot_attack(net, attack_buses)
         # send_to_network_sim(SMGW_data, i)
         # parse the measurement data from the network simulator SMGW_data will be replaced by GO_data
         parse_measurement(SMGW_data, net) #replace SMGW_data with GO_data to incorporate network sim
         run_state_estimation(net)
-        plot_differences(correct_data, net.res_bus_est)
-
-
-def plot_differences(correct_data, fdia_data):
-    # Plot the differences between the correct and the FDIA data
-    # The differences are calculated as the difference between the correct and the FDIA data
-    # The differences are then plotted for each bus
-    differences = compute_differences(correct_data, fdia_data)
-    print("Average Differences in %: ")
-    print(differences.mean())
-    differences.iloc[0:42].plot(subplots=True,xlabel="Bus Number", ylabel="Difference in %",
-                     title=["Voltage Difference", "Active Power Difference", "Reactive Power Difference", "Voltage Angle Difference"])
-    plt.show()
-    return differences
-
-
-def compute_differences(correct_data, fdia_data):
-    # Computes the percentage differences between the correct and the FDIA data and puts them in the differences dataframe
-    # The differences are calculated as (FDIA - Correct) / Correct * 100
-
-    differences = pd.DataFrame()
-    for column in correct_data.columns:
-        differences[f"d_{column}"] = ((fdia_data[column] - correct_data[column]) / correct_data[column]) * 100
-    return differences
-
-
-def plot_attack(net, attack_buses):
-    # Take the geodata of the attack_buses from net["bus_geodata"] and plot them as red dots
-    # Take the geodata of the rest of the buses from net["bus_geodata"] and plot them as blue dots
-    # Takes the start and end points of the lines "from_bus" and "to_bus" from net["line"] and plots them
-    bus_geodata = net["bus_geodata"]
-    attack_geodata = bus_geodata.loc[attack_buses]
-    rest_geodata = bus_geodata.drop(attack_buses)
-    line_geodata = net["line"]
-    for line in line_geodata.iterrows():
-        x0 = bus_geodata.loc[line[1]["from_bus"]]["x"]
-        y0 = bus_geodata.loc[line[1]["from_bus"]]["y"]
-        x1 = bus_geodata.loc[line[1]["to_bus"]]["x"]
-        y1 = bus_geodata.loc[line[1]["to_bus"]]["y"]
-        plt.plot([x0, x1], [y0, y1], color="black")
-    plt.scatter(rest_geodata["x"], rest_geodata["y"], color="blue")
-    plt.scatter(attack_geodata["x"], attack_geodata["y"], color="red")
-    """
-    # Way too small to read, maybe add a text box for each bus
-    # Add the measurement data for each bus to the plot such as (v = Voltage, p = Active Power, q = Reactive Power)
-    for bus in net.res_bus.index:
-        plt.text(bus_geodata.loc[bus]["x"], bus_geodata.loc[bus]["y"], f"v: {net.res_bus.loc[bus]['vm_pu']:.2f}\np: {net.res_bus.loc[bus]['p_mw']:.2f}\nq: {net.res_bus.loc[bus]['q_mvar']:.2f}")
-    """
-    plt.show()
+        fdia.plot_differences(correct_data, net.res_bus_est)
 
 
 def run_state_estimation(net):
@@ -179,6 +129,7 @@ def send_to_network_sim(SMGW_data, timestep):
         # Send to port 8081, where the network simulator is listening
         Network.send_message("127.0.0.1", 8081 + i, json.dumps(measurement))
 
+
 def receive_from_network_sim():
     # Listens to messages on port 8080
     # The messages are the measurement data from the Network Simulator
@@ -237,7 +188,7 @@ def train_fdia():
             fdia.random_fdia([i], SMGW_data)
             parse_measurement(SMGW_data, net)
             run_state_estimation(net)
-            differences = compute_differences(net.res_bus_est, correct_data).mean().transpose()
+            differences = fdia.compute_differences(net.res_bus_est, correct_data).mean().transpose()
             # Add the mean of the differences to the effect dataframe
             effect = pd.concat([effect, differences], ignore_index=True, axis=1)
         # Plot the effect of the FDIA attack on the grid
@@ -250,14 +201,14 @@ def train_fdia():
         effect.plot(subplots=True, xlabel="Bus Number", ylabel="Difference in %",
                     title=["Voltage Difference", "Active Power Difference", "Reactive Power Difference", "Voltage Angle Difference"])
         plt.show()
-        plot_attack(net, [effect['d_vm_pu'].idxmax(), effect['d_va_degree'].idxmax(), effect['d_p_mw'].idxmax(),
+        fdia.plot_attack(net, [effect['d_vm_pu'].idxmax(), effect['d_va_degree'].idxmax(), effect['d_p_mw'].idxmax(),
                           effect['d_q_mvar'].idxmax()])"""
         # Add the most effective bus to the counter
         print(j)
         counter.loc[j] = effect.idxmax().values
-    # Print the most effective bus for each value
+    # Print the most effective bus for each value -> (Voltage: 42, Voltage Angle: 32, Power(both): 0)
     print(counter.mode())
-    plot_attack(net, counter.mode().iloc[0])
+    fdia.plot_attack(net, counter.mode().iloc[0])
 
 
 if __name__ == "__main__":
