@@ -6,3 +6,4 @@ build
 cmake-build-debug
 .venv
 /ext/ns3
+/ext
