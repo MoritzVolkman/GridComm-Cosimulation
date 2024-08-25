@@ -5,10 +5,12 @@
 #include "ns3/applications-module.h"
 #include "ns3/pcap-file-wrapper.h"
 
+
 #include <nlohmann/json.hpp>
 
 #include "Network.hpp"
 
+#include <shared_mutex>
 #include <fstream>
 #include <sstream>
 
@@ -171,18 +173,38 @@ void ReceivePacketTrace(Ptr<const Packet> packet, const Address& from, const Add
     }
 }
 
-int main(int argc, char* argv[])
-{
+void simulation_loop() {
+
     LogComponentEnable("TcpExample", LOG_LEVEL_INFO);
 
     // Receive `n_msgs` from the GridSim.py for further processinc
-    const std::size_t n_msgs = 9;
+    const std::size_t n_msgs = 44;
     std::vector<std::string> jsonData;
+    std::vector<std::future<void>> tasks;
+    std::shared_mutex jsonDataMtx;
     for (int i = 0; i < n_msgs; ++i) {
-      auto message = network::wait_for_message(8081 + i);
-      jsonData.push_back({message.begin(), message.end()});
+        auto task = std::async([i, &jsonData, &jsonDataMtx] {
+            auto message = network::wait_for_message(8081 + i);
+            auto lock = std::shared_lock{jsonDataMtx}; // lock json vector to avoid race conditions between threads
+            jsonData.emplace_back(message.begin(), message.end());
+        });
+        tasks.push_back(std::move(task));
     }
 
+        // wait for all messages to become available
+    for(auto& task : tasks) {
+        task.wait();
+    }
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    auto collected_jsons = nlohmann::json{};
+    for(auto const& json_str : jsonData)  {
+        auto json_obj = nlohmann::json::parse(json_str.begin(), json_str.end());
+        collected_jsons.push_back(json_obj);
+    }
+
+    network::send_message("127.0.0.1", 8080, collected_jsons.dump());
     MyApp appInstance;
     appInstance.LoadJsonData("~/PycharmProjects/GridComm-Cosimulation/JSON/", jsonData);
 
@@ -233,9 +255,17 @@ int main(int argc, char* argv[])
     pointToPoint.EnablePcapAll("~/PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
 
     Simulator::Run();
-	// Send the JSON data to the Python simulation via netcat
-	std::system("netcat localhost 8080 < ~/PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json");
-    std::system("rm ~/PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json");
     Simulator::Destroy();
+
+    // Send the JSON data to the Python simulation via netcat
+    // network::send_message("127.0.0.1", 10000, "griddata");
+
+}
+
+int main(int argc, char* argv[])
+{
+    while(true) {
+        simulation_loop();
+    }
     return 0;
 }
