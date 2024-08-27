@@ -11,3 +11,4 @@ pytest
 pandapower
 simbench
 plotly
+alive-progress
