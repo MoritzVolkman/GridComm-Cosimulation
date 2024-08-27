@@ -206,7 +206,7 @@ void simulation_loop() {
 
     network::send_message("127.0.0.1", 8080, collected_jsons.dump());
     MyApp appInstance;
-    appInstance.LoadJsonData("~/PycharmProjects/GridComm-Cosimulation/JSON/", jsonData);
+    appInstance.LoadJsonData("JSON/", jsonData);
 
     NodeContainer nodes;
     nodes.Create(10);
@@ -252,7 +252,7 @@ void simulation_loop() {
     Config::ConnectWithoutContext("/NodeList/9/ApplicationList/*/$ns3::PacketSink/RxWithAddresses",
                                   MakeCallback(&ReceivePacketTrace));
 
-    pointToPoint.EnablePcapAll("~/PycharmProjects/GridComm-Cosimulation/PCAP/NetSim");
+    pointToPoint.EnablePcapAll("PCAP/NetSim");
 
     Simulator::Run();
     Simulator::Destroy();
