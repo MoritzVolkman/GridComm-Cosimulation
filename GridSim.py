@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from pandapower.plotting.plotly import simple_plotly, pf_res_plotly
 import Network
 import itertools
+import time
 
 
 def main():
@@ -176,6 +177,7 @@ def train_fdia():
     # The counter is then used to select the most effective bus for the FDIA attack
     counter = pd.DataFrame(columns="vm_pu va_degree p_mw q_mvar".split())
     for j in range(96):
+        start = time.time()
         # Take the load profile for a random timestep -> could be any other timestep
         apply_absolute_values(net, profiles, j)
         net.trafo.tap_pos = 1
@@ -217,7 +219,7 @@ def train_fdia():
         fdia.plot_attack(net, [effect['d_vm_pu'].idxmax(), effect['d_va_degree'].idxmax(), effect['d_p_mw'].idxmax(),
                           effect['d_q_mvar'].idxmax()])"""
         # Add the most effective bus to the counter
-        print(j)
+        print(j, time.time() - start)
         counter.loc[j] = effect.idxmax().values
     # Print the most effective bus for each value -> (Voltage: 42, Voltage Angle: 32, Power(both): 0)
     print(counter.mode())
