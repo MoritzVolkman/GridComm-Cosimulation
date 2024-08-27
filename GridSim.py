@@ -1,3 +1,4 @@
+import itertools
 import json
 import time
 import numpy as np
@@ -11,6 +12,7 @@ import FDIA as fdia
 import matplotlib.pyplot as plt
 from pandapower.plotting.plotly import simple_plotly, pf_res_plotly
 import Network
+import itertools
 
 
 def main():
@@ -177,15 +179,26 @@ def train_fdia():
         # Take the load profile for a random timestep -> could be any other timestep
         apply_absolute_values(net, profiles, j)
         net.trafo.tap_pos = 1
-        pandapower.runpp(net, calculate_voltage_angles=True)
+        if j:
+            pandapower.runpp(net, calculate_voltage_angles=True, init="results")
+        else:
+            pandapower.runpp(net, calculate_voltage_angles=True)
         SMGW_data = create_measurement(net)
         parse_measurement(SMGW_data, net)
         run_state_estimation(net)
         correct_data = net.res_bus_est
         effect = pd.DataFrame(columns="vm_pu va_degree p_mw q_mvar".split())
+        # create a list of all bus combinations containing 6 busses
+        bus_list = net.bus.index.to_list()
+        bus_list.remove(129)
+        best_attack_busses = [0, 32, 42]
+        for bus in best_attack_busses:
+            bus_list.remove(bus)
+        combinations = itertools.combinations(bus_list, 3)
         # Let the FDIA attack the grid at every bus
-        for i in range(len(net.bus)):
-            fdia.random_fdia([i], SMGW_data)
+        for combination in combinations:
+            attack = [*combination, *best_attack_busses]
+            fdia.random_fdia(attack, SMGW_data)
             parse_measurement(SMGW_data, net)
             run_state_estimation(net)
             differences = fdia.compute_differences(net.res_bus_est, correct_data).mean().transpose()
@@ -212,6 +225,6 @@ def train_fdia():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
     # receive_from_network_sim()
-    # train_fdia()
+    train_fdia()
