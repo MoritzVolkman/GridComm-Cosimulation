@@ -3,7 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import simbench as sb
 import pandapower
-from GridSim import create_measurement
 
 # Injects false data into the measurement data for the specified busses
 # The mode specifies the type of false data that is injected
@@ -39,7 +38,9 @@ def uninformed_fdia(busses, measurements):
                 measurement["MeasurementData"]["Voltage"] = 0.999
 
 
-def informed_fdia_liu(busses, measurements,  net):
+def random_fdia_liu(busses, measurements,  net):
+    # Random FDIA attack using the Liu method
+    # Requires at least 6 attack busses to work
     H = net._ppc["internal"]["J"].todense()
     I_meter = net.bus.index.to_list()
     I_meter.remove(129) # Remove transformer MV bus
