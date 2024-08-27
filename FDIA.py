@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import simbench as sb
+import pandapower
+from GridSim import create_measurement
 
 # Injects false data into the measurement data for the specified busses
 # The mode specifies the type of false data that is injected
@@ -37,8 +39,52 @@ def uninformed_fdia(busses, measurements):
                 measurement["MeasurementData"]["Voltage"] = 0.999
 
 
-def informed_fdia(busses, measurements):
-    pass
+def informed_fdia_liu(busses, measurements,  net):
+    H = net._ppc["internal"]["J"].todense()
+    I_meter = net.bus.index.to_list()
+    I_meter.remove(129) # Remove transformer MV bus
+    for bus in busses:
+        I_meter.remove(bus)
+    print(I_meter)
+    m, n = H.shape
+    # Convert H matrix to a floating type for numerical stability
+    H = H.astype(float)
+    for j in I_meter:
+        # Find a column where the j-th element is not zero
+        swap_col = -1
+        for i in range(n):
+            if H[j, i] != 0:
+                swap_col = i
+                break
+
+        if swap_col == -1:
+            # If no such column is found, continue to the next j
+            continue
+
+        # Swap the found column with the first column
+        H[:, [0, swap_col]] = H[:, [swap_col, 0]]
+
+        # Reduce columns to zero out the j-th element
+        for i in range(1, n):
+            if H[j, i] != 0:
+                factor = H[j, i] / H[j, 0]
+                H[:, i] = H[:, i] - factor * H[:, 0]
+
+        # After processing all bar_I_meter indices, find a suitable attack vector
+        # An attack vector can be any non-zero column that has zero elements in indices of bar_I_meter.
+    for i in range(n):
+        column = H[:, i]
+        if all(column[j] == 0 for j in I_meter):
+            # Ensure it's a non-zero vector
+            if np.any(column != 0):
+                break
+    for bus in busses:
+        for measurement in measurements:
+            if measurement["UserInformation"]["ConsumerID"] == bus:
+                measurement["MeasurementData"]["ActivePower"] = column.item(bus, 0)
+                measurement["MeasurementData"]["ReactivePower"] = column.item(bus, 0)
+    return measurements
+
 
 
 def plot_differences(correct_data, fdia_data):
@@ -84,4 +130,6 @@ def plot_attack(net, attack_buses):
     for bus in bus_geodata.iterrows():
         plt.text(bus[1]["x"], bus[1]["y"], bus[0])
     plt.show()
+
+
 
