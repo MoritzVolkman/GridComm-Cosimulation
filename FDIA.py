@@ -217,12 +217,13 @@ def deep_learning_fdia_predict(model):
     return list(best_individual)
 
 def deep_learning_fdia_inject(att_vector, busses, measurements):
+    av = att_vector.copy()
     for bus in busses:
         for measurement in measurements:
             if measurement["UserInformation"]["ConsumerID"] == bus:
-                measurement["MeasurementData"]["ActivePower"] = att_vector.pop()
-                measurement["MeasurementData"]["ReactivePower"] = att_vector.pop()
-                measurement["MeasurementData"]["Voltage"] = att_vector.pop()
+                measurement["MeasurementData"]["ActivePower"] = av.pop()
+                measurement["MeasurementData"]["ReactivePower"] = av.pop()
+                measurement["MeasurementData"]["Voltage"] = av.pop()
     return measurements
 
 
@@ -269,12 +270,4 @@ def plot_attack(net, attack_buses):
     for bus in bus_geodata.iterrows():
         plt.text(bus[1]["x"], bus[1]["y"], bus[0])
     plt.show()
-
-if __name__ == "__main__":
-    attack_vectors = []
-    for i in range(7):
-        model = deep_learning_fdia_train_model()
-        a_v = deep_learning_fdia_predict(model)
-        attack_vectors.append(a_v)
-    print(attack_vectors)
 
