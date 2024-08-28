@@ -5,12 +5,12 @@
 #include "ns3/applications-module.h"
 #include "ns3/pcap-file-wrapper.h"
 
-
 #include <nlohmann/json.hpp>
 
-#include "Network.hpp"
+#include "NetSimApp.hpp"
+#include "NetSimSinkApp.hpp"
+#include "helpers.hpp"
 
-#include <shared_mutex>
 #include <fstream>
 #include <sstream>
 
@@ -18,123 +18,6 @@ using namespace ns3;
 using json = nlohmann::json;
 
 NS_LOG_COMPONENT_DEFINE("TcpExample");
-
-class MyApp : public Application
-{
-public:
-    MyApp();
-    virtual ~MyApp();
-
-    void LoadJsonData(std::string path, std::vector<std::string> jsonData);
-    void Setup(Ptr<Socket> socket, Address address, uint32_t packetSize,
-               uint32_t nPackets, DataRate dataRate, std::string jsonData);
-
-private:
-    virtual void StartApplication(void);
-    virtual void StopApplication(void);
-
-    void ScheduleTx(void);
-    void SendPacket(void);
-
-    Ptr<Socket> m_socket;
-    Address m_peer;
-    uint32_t m_packetSize;
-    uint32_t m_nPackets;
-    DataRate m_dataRate;
-    std::string m_jsonData;
-    EventId m_sendEvent;
-    bool m_running;
-    uint32_t m_packetsSent;
-};
-
-MyApp::MyApp()
-    : m_socket(0),
-      m_peer(),
-      m_packetSize(0),
-      m_nPackets(0),
-      m_dataRate(0),
-      m_sendEvent(),
-      m_running(false),
-      m_packetsSent(0) {}
-
-MyApp::~MyApp()
-{
-    m_socket = 0;
-}
-
-void MyApp::Setup(Ptr<Socket> socket, Address address, uint32_t packetSize,
-                  uint32_t nPackets, DataRate dataRate, std::string jsonData)
-{
-    m_socket = socket;
-    m_peer = address;
-    m_packetSize = packetSize;
-    m_nPackets = nPackets;
-    m_dataRate = dataRate;
-    m_jsonData = jsonData;
-}
-
-void MyApp::StartApplication(void)
-{
-    m_running = true;
-    m_packetsSent = 0;
-
-    // Connect the socket
-    m_socket->Bind();
-    m_socket->Connect(m_peer);
-    SendPacket();
-}
-
-void MyApp::StopApplication(void)
-{
-    m_running = false;
-
-    if (m_sendEvent.IsPending()) {
-      Simulator::Cancel(m_sendEvent);
-    }
-
-    if (m_socket)
-    {
-        m_socket->Close();
-    }
-}
-
-void MyApp::SendPacket(void)
-{
-    Ptr<Packet> packet = Create<Packet>((uint8_t *)m_jsonData.c_str(), m_packetSize);
-    m_socket->Send(packet);
-
-    if (++m_packetsSent < m_nPackets)
-    {
-        ScheduleTx();
-    }
-}
-
-void MyApp::ScheduleTx(void)
-{
-    if (m_running)
-    {
-        Time tNext(Seconds(m_packetSize * 8 / static_cast<double>(m_dataRate.GetBitRate())));
-        m_sendEvent = Simulator::Schedule(tNext, &MyApp::SendPacket, this);
-    }
-}
-
-void MyApp::LoadJsonData(std::string path, std::vector<std::string> jsonData)
-{
-    for (int i = 0; i < jsonData.size(); ++i)
-    {
-        std::ifstream file(path + "measurement_0_" + std::to_string(i) + ".json");
-        if (file)
-        {
-            std::ostringstream ss;
-            ss << file.rdbuf();
-            jsonData[i] = ss.str();
-        }
-        else
-        {
-            NS_LOG_UNCOND("Error reading file: " + path + "measurement_0_" + std::to_string(i) + ".json");
-        }
-    }
-}
 
 void SendPacketTrace(Ptr<const Packet> packet)
 {
@@ -150,122 +33,121 @@ void ReceivePacketTrace(Ptr<const Packet> packet, const Address& from, const Add
     NS_LOG_UNCOND(oss.str());
 
     // Extract the payload from the packet and convert it to a string
-    uint32_t dataSize = packet->GetSize();
-    uint8_t* buffer = new uint8_t[dataSize];
-    packet->CopyData(buffer, dataSize);
-    std::string jsonData(reinterpret_cast<char*>(buffer), dataSize);
-    delete[] buffer;
+    std::vector<uint8_t> buffer(packet->GetSize());
+    packet->CopyData(buffer.data(), buffer.size());
+    std::string jsonData(buffer.begin(), buffer.end());
 
     // Parse the string as JSON and save it to a file
     try {
         json receivedJson = json::parse(jsonData);
 
         // Open "grid_data.json" in append mode to add the received JSON data
-        std::ofstream outFile("../../../../../PycharmProjects/GridComm-Cosimulation/JSON/grid_data.json", std::ios::app);
+        std::ofstream outFile("JSON/grid_data.json", std::ios::app);
 
         // Write the JSON data to the file
         outFile << receivedJson.dump() << std::endl;
-
-        // Close the file
-        outFile.close();
     } catch (json::parse_error& e) {
         NS_LOG_UNCOND("Failed to parse JSON: " + std::string(e.what()));
     }
 }
 
-void simulation_loop() {
+void simulation_loop(uint32_t n_nodes) {
 
-    LogComponentEnable("TcpExample", LOG_LEVEL_INFO);
+  // Receive `n_nodes` amount of messages from the GridSim.py for further
+  // processing
+  auto measurements = receive_messages(n_nodes, 8081);
 
-    // Receive `n_msgs` from the GridSim.py for further processinc
-    const std::size_t n_msgs = 44;
-    std::vector<std::string> jsonData;
-    std::vector<std::future<void>> tasks;
-    std::shared_mutex jsonDataMtx;
-    for (int i = 0; i < n_msgs; ++i) {
-        auto task = std::async([i, &jsonData, &jsonDataMtx] {
-            auto message = network::wait_for_message(8081 + i);
-            auto lock = std::shared_lock{jsonDataMtx}; // lock json vector to avoid race conditions between threads
-            jsonData.emplace_back(message.begin(), message.end());
-        });
-        tasks.push_back(std::move(task));
-    }
+  NetSimApp appInstance;
 
-        // wait for all messages to become available
-    for(auto& task : tasks) {
-        task.wait();
-    }
+  NodeContainer nodes;
+  nodes.Create(n_nodes +
+               1); // create a node for every measurement + one for the operator
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+  PointToPointHelper pointToPoint;
+  pointToPoint.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
+  pointToPoint.SetChannelAttribute("Delay", StringValue("2ms"));
 
-    auto collected_jsons = nlohmann::json{};
-    for(auto const& json_str : jsonData)  {
-        auto json_obj = nlohmann::json::parse(json_str.begin(), json_str.end());
-        collected_jsons.push_back(json_obj);
-    }
+  InternetStackHelper stack;
+  stack.Install(nodes);
 
-    network::send_message("127.0.0.1", 8080, collected_jsons.dump());
-    MyApp appInstance;
-    appInstance.LoadJsonData("JSON/", jsonData);
+  Ipv4AddressHelper address;
+  std::vector<Ipv4InterfaceContainer> interfaces(n_nodes);
 
-    NodeContainer nodes;
-    nodes.Create(10);
+  // connect all nodes to the operator node
+  for (uint32_t i = 0; i < n_nodes; ++i) {
+    NetDeviceContainer devices =
+        pointToPoint.Install(NodeContainer(nodes.Get(i), nodes.Get(n_nodes)));
+    address.SetBase(std::format("10.0.{}.0", i + 1).c_str(), "255.255.255.0");
+    interfaces[i] = address.Assign(devices);
+  }
 
-    PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute("DataRate", StringValue("5Mbps"));
-    pointToPoint.SetChannelAttribute("Delay", StringValue("2ms"));
+  // install a packet sink on the operator node for every sender
+  uint16_t port = 8080;
+  std::vector<Ptr<Socket>> sockets;
+  for (int i = 0; i < n_nodes; ++i) {
+    Ptr<Socket> sinkSocket =
+        Socket::CreateSocket(nodes.Get(n_nodes), TcpSocketFactory::GetTypeId());
+    sinkSocket->Bind(InetSocketAddress(interfaces[i].GetAddress(1), 8080));
+    sockets.push_back(sinkSocket);
+  }
+  Ptr<SinkApp> sinkApp = Create<SinkApp>(sockets);
+  nodes.Get(n_nodes)->AddApplication(sinkApp);
+  sinkApp->SetStartTime(Seconds(0.5));
+  sinkApp->SetStopTime(Seconds(20.));
 
-    InternetStackHelper stack;
-    stack.Install(nodes);
+  PacketSinkHelper packetSinkHelper(
+      "ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
+  ApplicationContainer sinkApps = packetSinkHelper.Install(nodes.Get(n_nodes));
+  sinkApps.Start(Seconds(1.0));
+  sinkApps.Stop(Seconds(10.0));
 
-    Ipv4AddressHelper address;
-    std::vector<Ipv4InterfaceContainer> interfaces(9);
+  for (uint32_t i = 0; i < n_nodes; ++i) {
+    Ptr<Socket> ns3TcpSocket =
+        Socket::CreateSocket(nodes.Get(i), TcpSocketFactory::GetTypeId());
+    Address sinkAddress(InetSocketAddress(interfaces[i].GetAddress(1), port));
+    Ptr<NetSimApp> app = CreateObject<NetSimApp>();
+    app->Setup(ns3TcpSocket, sinkAddress, 1040, DataRate("1Mbps"),
+               measurements[i]);
+    nodes.Get(i)->AddApplication(app);
+    app->SetStartTime(Seconds(2.0));
+    app->SetStopTime(Seconds(10.0));
 
-    for (uint32_t i = 0; i < 9; ++i)
-    {
-        NetDeviceContainer devices = pointToPoint.Install(NodeContainer(nodes.Get(i), nodes.Get(9)));
-        std::ostringstream subnet;
-        subnet << "10.1." << i + 1 << ".0";
-        address.SetBase(subnet.str().c_str(), "255.255.255.0");
-        interfaces[i] = address.Assign(devices);
-    }
+    app->TraceConnectWithoutContext("Tx", MakeCallback(&SendPacketTrace));
+  }
 
-    uint16_t port = 8080;
-    PacketSinkHelper packetSinkHelper("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
-    ApplicationContainer sinkApps = packetSinkHelper.Install(nodes.Get(9));
-    sinkApps.Start(Seconds(1.0));
-    sinkApps.Stop(Seconds(10.0));
+  nodes.Get(n_nodes)->TraceConnectWithoutContext(
+      "RxWithAddresses", MakeCallback(&ReceivePacketTrace));
 
-    for (uint32_t i = 0; i < 9; ++i)
-    {
-        Ptr<Socket> ns3TcpSocket = Socket::CreateSocket(nodes.Get(i), TcpSocketFactory::GetTypeId());
-        Address sinkAddress(InetSocketAddress(interfaces[i].GetAddress(1), port));
-        Ptr<MyApp> app = CreateObject<MyApp>();
-        app->Setup(ns3TcpSocket, sinkAddress, 1040, 1, DataRate("1Mbps"), jsonData[i]);
-        nodes.Get(i)->AddApplication(app);
-        app->SetStartTime(Seconds(2.0));
-        app->SetStopTime(Seconds(10.0));
+  //   Config::ConnectWithoutContext(
+  //       std::format(
+  //           "/NodeList/{}/ApplicationList/*/$ns3::PacketSink/RxWithAddresses",
+  //           n_nodes)
+  //           .c_str(),
+  //       MakeCallback(&ReceivePacketTrace));
 
-        app->TraceConnectWithoutContext("Tx", MakeCallback(&SendPacketTrace));
-    }
+  pointToPoint.EnablePcapAll("PCAP/NetSim");
 
-    Config::ConnectWithoutContext("/NodeList/9/ApplicationList/*/$ns3::PacketSink/RxWithAddresses",
-                                  MakeCallback(&ReceivePacketTrace));
+  Simulator::Run();
+  Simulator::Destroy();
 
-    pointToPoint.EnablePcapAll("PCAP/NetSim");
+  auto recvd_measurements = sinkApp->getMeasurements();
+  auto aggregated_measurements = collect_jsons(recvd_measurements);
 
-    Simulator::Run();
-    Simulator::Destroy();
-
-    // Send the JSON data to the Python simulation via netcat
-    // network::send_message("127.0.0.1", 10000, "griddata");
-
+  // Send the JSON data to the Python simulation via netcat
+  network::send_message("127.0.0.1", 10000, aggregated_measurements.dump());
 }
 
 int main(int argc, char* argv[])
 {
-    while(true) {
-        simulation_loop();
-    }
+  // receive the number of simulation nodes nodes
+  auto n_nodes_str = network::wait_for_message(10000);
+  auto n_nodes = std::stoi(std::string{n_nodes_str.begin(), n_nodes_str.end()});
+
+  // keep reading in measurements, running the netsim and responding with the
+  // aggregated results
+  LogComponentEnable("TcpExample", LOG_LEVEL_INFO);
+  while (true) {
+    simulation_loop(n_nodes);
+  }
     return 0;
 }
