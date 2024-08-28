@@ -286,7 +286,3 @@ def plot_attack(net, attack_buses):
     for bus in bus_geodata.iterrows():
         plt.text(bus[1]["x"], bus[1]["y"], bus[0])
     plt.show()
-
-
-if __name__ == "__main__":
-    deep_learning_fdia_train_model()
