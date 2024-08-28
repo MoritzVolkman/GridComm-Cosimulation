@@ -121,6 +121,22 @@ def deep_learning_fdia_train_model():
     # Load the dataset
     data = pd.read_csv('dataset.csv')
 
+    # Find upper and lower limits for the input variables to pass bad data detection
+    # Extract columns for V, P, and Q
+    V_columns = [col for col in data.columns if col.startswith('V')]
+    P_columns = [col for col in data.columns if col.startswith('P')]
+    Q_columns = [col for col in data.columns if col.startswith('Q')]
+
+    # Calculate the mean and max for each set of columns
+    V_min = data[V_columns].min().min()
+    V_max = data[V_columns].max().max()
+
+    P_min = data[P_columns].min().min()
+    P_max = data[P_columns].max().max()
+
+    Q_min = data[Q_columns].min().min()
+    Q_max = data[Q_columns].max().max()
+
     # Select input features for buses 0, 1, 2, 8, 9, and 40
     input_columns = [
         'V0', 'P0', 'Q0',
@@ -271,3 +287,6 @@ def plot_attack(net, attack_buses):
         plt.text(bus[1]["x"], bus[1]["y"], bus[0])
     plt.show()
 
+
+if __name__ == "__main__":
+    deep_learning_fdia_train_model()
