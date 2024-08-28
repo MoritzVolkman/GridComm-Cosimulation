@@ -3,6 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import simbench as sb
 import pandapower
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+import tensorflow as tf
+from tensorflow import keras
+from deap import base, creator, tools, algorithms
 
 # Injects false data into the measurement data for the specified busses
 # The mode specifies the type of false data that is injected
@@ -112,6 +117,113 @@ def deep_learning_fdia_build_dataset(measurements, original_vals, net):
     return row
 
 
+def deep_learning_fdia_train_model():
+    # Load the dataset
+    data = pd.read_csv('dataset.csv')
+
+    # Select input features for buses 0, 1, 2, 8, 9, and 40
+    input_columns = [
+        'V0', 'P0', 'Q0',
+        'V1', 'P1', 'Q1',
+        'V2', 'P2', 'Q2',
+        'V8', 'P8', 'Q8',
+        'V9', 'P9', 'Q9',
+        'V40', 'P40', 'Q40'
+    ]
+
+    # Select the entire output for all nodes if needed
+    # Modify these according to your requirements, or only select the desired outputs
+    output_columns = [
+                         f'V_OUT{i}' for i in range(43)
+                     ] + [
+                         f'PHI_OUT{i}' for i in range(43)
+                     ] + [
+                         f'P_OUT{i}' for i in range(43)
+                     ] + [
+                         f'Q_OUT{i}' for i in range(43)
+                     ]
+
+    # Extract input and output data
+    X_selected = data[input_columns].values
+    y = data[output_columns].values
+
+    # Preprocessing
+    scaler_X = StandardScaler()
+    scaler_y = StandardScaler()
+
+    X_scaled = scaler_X.fit_transform(X_selected)
+    y_scaled = scaler_y.fit_transform(y)
+
+    # Train-test split
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_scaled, test_size=0.2, random_state=42)
+
+    # Build the neural network model
+    model = keras.Sequential([
+        keras.layers.Dense(256, activation='relu', input_shape=(X_train.shape[1],)),
+        keras.layers.Dense(256, activation='relu'),
+        keras.layers.Dense(y_train.shape[1])  # output layers matches the number of output variables
+    ])
+
+    model.compile(optimizer='adam', loss='mean_squared_error')
+
+    # Train the model
+    model.fit(X_train, y_train, epochs=100, batch_size=32, validation_split=0.2)
+
+    # Evaluate the model
+    loss = model.evaluate(X_test, y_test)
+    print(f'Test Loss: {loss}')
+
+    return model
+
+
+def deep_learning_fdia_predict(model):
+    # Use the pre-trained model to create the best possible input for the FDIA attack
+    # We utilize a genetic algorithm to find the best possible input
+    # Define our evaluation function
+    def evaluate(individual):
+        input_array = np.array(individual).reshape(1, -1)
+        prediction = model.predict(input_array)
+        return np.max(prediction),
+
+    # Create classes for the optimization problem
+    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+    creator.create("Individual", list, fitness=creator.FitnessMax)
+
+    toolbox = base.Toolbox()
+    toolbox.register("attr_float", np.random.rand)
+    toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=18)
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
+    toolbox.register("evaluate", evaluate)
+    toolbox.register("mate", tools.cxBlend, alpha=0.5)
+    toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.1)
+    toolbox.register("select", tools.selTournament, tournsize=3)
+
+    # Genetic Algorithm settings
+    population = toolbox.population(n=300)
+    ngen = 40
+    cxpb = 0.5  # Crossover probability
+    mutpb = 0.2  # Mutation probability
+
+    # Run the genetic algorithm
+    algorithms.eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=True)
+
+    # Extract the best individual
+    best_individual = tools.selBest(population, k=1)[0]
+    optimal_output = model.predict(np.array(best_individual).reshape(1, -1))
+
+    print("Optimal Inputs (via GA):", list(best_individual))
+    print("Optimal Output (via GA):", optimal_output)
+    return list(best_individual)
+
+def deep_learning_fdia_inject(att_vector, busses, measurements):
+    for bus in busses:
+        for measurement in measurements:
+            if measurement["UserInformation"]["ConsumerID"] == bus:
+                measurement["MeasurementData"]["ActivePower"] = att_vector.pop()
+                measurement["MeasurementData"]["ReactivePower"] = att_vector.pop()
+                measurement["MeasurementData"]["Voltage"] = att_vector.pop()
+    return measurements
 
 
 def plot_differences(correct_data, fdia_data):
@@ -158,5 +270,11 @@ def plot_attack(net, attack_buses):
         plt.text(bus[1]["x"], bus[1]["y"], bus[0])
     plt.show()
 
-
+if __name__ == "__main__":
+    attack_vectors = []
+    for i in range(7):
+        model = deep_learning_fdia_train_model()
+        a_v = deep_learning_fdia_predict(model)
+        attack_vectors.append(a_v)
+    print(attack_vectors)
 

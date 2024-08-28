@@ -12,3 +12,6 @@ pandapower
 simbench
 plotly
 alive-progress
+scikit-learn
+tensorflow
+deap
