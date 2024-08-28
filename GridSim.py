@@ -23,6 +23,7 @@ def main():
 
     profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
     for i in range(3): # normally should be 96, 3 just for testing
+        print(f"Doing Step {i}")
         # Do a power flow calculation for each time step
         apply_absolute_values(net, profiles, i)
         net.trafo.tap_pos = 1
