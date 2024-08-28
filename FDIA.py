@@ -23,6 +23,7 @@ def random_fdia(busses, measurements):
                 measurement["MeasurementData"]["ActivePower"] = np.random.uniform(10e-06, 10e-02)
                 measurement["MeasurementData"]["ReactivePower"] = np.random.uniform(-10e-05, 10e-05)
                 measurement["MeasurementData"]["Voltage"] = np.random.uniform(0.95, 1.05)
+    return measurements
 
 
 def uninformed_fdia(busses, measurements):
@@ -38,15 +39,14 @@ def uninformed_fdia(busses, measurements):
                 measurement["MeasurementData"]["Voltage"] = 0.999
 
 
-def random_fdia_liu(busses, measurements,  net):
+def random_fdia_liu(busses, measurements,  net, H):
     # Random FDIA attack using the Liu method
     # Requires at least 6 attack busses to work
-    H = net._ppc["internal"]["J"].todense()
     I_meter = net.bus.index.to_list()
     I_meter.remove(129) # Remove transformer MV bus
     for bus in busses:
         I_meter.remove(bus)
-    print(I_meter)
+    # print(I_meter)
     m, n = H.shape
     # Convert H matrix to a floating type for numerical stability
     H = H.astype(float)
@@ -82,9 +82,35 @@ def random_fdia_liu(busses, measurements,  net):
     for bus in busses:
         for measurement in measurements:
             if measurement["UserInformation"]["ConsumerID"] == bus:
-                measurement["MeasurementData"]["ActivePower"] = column.item(bus, 0)
-                measurement["MeasurementData"]["ReactivePower"] = column.item(bus, 0)
+                measurement["MeasurementData"]["ActivePower"] += column.item(bus, 0)
+                measurement["MeasurementData"]["ReactivePower"] += column.item(bus, 0)
     return measurements
+
+
+def deep_learning_fdia_build_dataset(measurements, original_vals, net):
+    # Get the voltage, ActivePower and ReactivePower for each bus from measurements
+    # And put them in a format like this: [voltage0, active_power0, reactive_power0, voltage1,...]
+    # Add the net.bus.state_est values to the same row as o_voltage0, o_active_power0, o_reactive_power0,...]
+    # Use the deep learning model to predict the correct values for the FDIA data
+    # Add the predicted values to the measurements
+    row = []
+    for bus in net.res_bus.index.to_list():
+        if bus == 129:
+            continue
+        for measurement in measurements:
+            if measurement["UserInformation"]["ConsumerID"] == bus:
+                row.append(measurement["MeasurementData"]["Voltage"]-original_vals.loc[bus]["vm_pu"])
+                row.append(measurement["MeasurementData"]["ActivePower"]-original_vals.loc[bus]["p_mw"])
+                row.append(measurement["MeasurementData"]["ReactivePower"]-original_vals.loc[bus]["q_mvar"])
+    for bus in net.res_bus.index.to_list():
+        if bus == 129:
+            continue
+        row.append(net.res_bus_est.loc[bus]["vm_pu"])
+        row.append(net.res_bus_est.loc[bus]["va_degree"])
+        row.append(net.res_bus_est.loc[bus]["p_mw"])
+        row.append(net.res_bus_est.loc[bus]["q_mvar"])
+    return row
+
 
 
 

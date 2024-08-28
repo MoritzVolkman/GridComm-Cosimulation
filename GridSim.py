@@ -177,6 +177,12 @@ def train_fdia():
     counter = pd.DataFrame(columns="mean max".split())
     # find the best attack busses for the Power FDIA
     best_attack_busses = [0, 1, 2, 8, 9, 40]
+    # Create Dataframe for the training data
+    num_busses = len(net.bus) - 1
+    columns_set1 = [f"{var}{i}" for i in range(num_busses) for var in ["V", "P", "Q"]]
+    columns_set2 = [f"{var}_OUT{i}" for i in range(num_busses) for var in ["V", "PHI", "P", "Q"]]
+    all_columns = columns_set1 + columns_set2
+    dataset = pd.DataFrame(columns=all_columns)
     # Iterate over all time steps and show progress bar
     for x in range(10):
         for j in range(96):
@@ -188,28 +194,25 @@ def train_fdia():
                 pandapower.runpp(net, calculate_voltage_angles=True, init="results")
             else:
                 pandapower.runpp(net, calculate_voltage_angles=True)
+            # Jacobian Matrix is deleted after state estimation, so has to be taken here
+            H = net._ppc["internal"]["J"].todense()
             SMGW_data = create_measurement(net)
             parse_measurement(SMGW_data, net)
             run_state_estimation(net)
             correct_data = net.res_bus_est
             # Let the FDIA attack the grid at every bus
-            fdia.random_fdia(best_attack_busses, SMGW_data)
-            parse_measurement(SMGW_data, net)
+            attack_data = fdia.random_fdia(best_attack_busses, SMGW_data)
+            parse_measurement(attack_data, net)
             run_state_estimation(net)
+            dataset.loc[len(dataset)] = fdia.deep_learning_fdia_build_dataset(attack_data, correct_data, net)
             differences = fdia.compute_differences(net.res_bus_est, correct_data)
             # Plot the differences between the correct and the FDIA data
-            """
-            print(f"Average effect on Active Power: {differences['d_p_mw'].mean()}%, \n"
-                    f"Largest absolute effect on Active Power: {differences['d_p_mw'].abs().max()}%")
-            differences.plot(subplots=True, xlabel="Bus Number", ylabel="Difference in %",
-                                title=["Voltage Difference","Voltage Angle Difference", 
-                                "Active Power Difference", "Reactive Power Difference"])
-            plt.show()"""
             counter.loc[j] = [differences['d_p_mw'].mean(), differences['d_p_mw'].abs().max()]
             # print(j, time.time() - start)
         # Print the most effective bus for each value -> (Voltage: 42, Voltage Angle: 32, Power(both): 0)
-        print(f"Iteration {j} Mean: ". counter.mean(), "\n", "Max: ", counter.max())
+        print(f"Iteration {j} Mean: ", counter.abs().mean(), "\n", "Max: ", counter.abs().max())
     fdia.plot_attack(net, best_attack_busses)
+    dataset.to_csv("dataset.csv", index=False)
 
 def find_best_attack_busses():
     sb_code = "1-LV-semiurb4--0-sw"

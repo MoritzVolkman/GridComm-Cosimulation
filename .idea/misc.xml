@@ -14,5 +14,5 @@
       <file path="$PROJECT_DIR$/ext" />
     </excludeRoots>
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12 (GridComm-Cosimulation)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10 (GridComm-Cosimulation)" project-jdk-type="Python SDK" />
 </project>
