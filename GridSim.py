@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 from pandapower.plotting.plotly import simple_plotly, pf_res_plotly
 import Network
 import time
-from alive_progress import alive_it
 
 
 def main():
@@ -172,14 +171,55 @@ def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
 def train_fdia():
     sb_code = "1-LV-semiurb4--0-sw"
     net = sb.get_simbench_net(sb_code)
-    fdia.plot_attack(net, [0,1,2,8,9,40])
-    exit()
+    profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
+    # Create a counter that is incremented every time a bus is selected as the most effective bus for one of the four values
+    # The counter is then used to select the most effective bus for the FDIA attack
+    counter = pd.DataFrame(columns="mean max".split())
+    # find the best attack busses for the Power FDIA
+    best_attack_busses = [0, 1, 2, 8, 9, 40]
+    # Iterate over all time steps and show progress bar
+    for x in range(10):
+        for j in range(96):
+            start = time.time()
+            # Take the load profile for a random timestep -> could be any other timestep
+            apply_absolute_values(net, profiles, j)
+            net.trafo.tap_pos = 1
+            if j:
+                pandapower.runpp(net, calculate_voltage_angles=True, init="results")
+            else:
+                pandapower.runpp(net, calculate_voltage_angles=True)
+            SMGW_data = create_measurement(net)
+            parse_measurement(SMGW_data, net)
+            run_state_estimation(net)
+            correct_data = net.res_bus_est
+            # Let the FDIA attack the grid at every bus
+            fdia.random_fdia(best_attack_busses, SMGW_data)
+            parse_measurement(SMGW_data, net)
+            run_state_estimation(net)
+            differences = fdia.compute_differences(net.res_bus_est, correct_data)
+            # Plot the differences between the correct and the FDIA data
+            """
+            print(f"Average effect on Active Power: {differences['d_p_mw'].mean()}%, \n"
+                    f"Largest absolute effect on Active Power: {differences['d_p_mw'].abs().max()}%")
+            differences.plot(subplots=True, xlabel="Bus Number", ylabel="Difference in %",
+                                title=["Voltage Difference","Voltage Angle Difference", 
+                                "Active Power Difference", "Reactive Power Difference"])
+            plt.show()"""
+            counter.loc[j] = [differences['d_p_mw'].mean(), differences['d_p_mw'].abs().max()]
+            # print(j, time.time() - start)
+        # Print the most effective bus for each value -> (Voltage: 42, Voltage Angle: 32, Power(both): 0)
+        print(f"Iteration {j} Mean: ". counter.mean(), "\n", "Max: ", counter.max())
+    fdia.plot_attack(net, best_attack_busses)
+
+def find_best_attack_busses():
+    sb_code = "1-LV-semiurb4--0-sw"
+    net = sb.get_simbench_net(sb_code)
     profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
     # Create a counter that is incremented every time a bus is selected as the most effective bus for one of the four values
     # The counter is then used to select the most effective bus for the FDIA attack
     counter = pd.DataFrame(columns="vm_pu va_degree p_mw q_mvar".split())
     # find the best attack busses for the Power FDIA
-    best_attack_busses = [0, 1, 2, 8, 40]
+    best_attack_busses = [0, 1, 2, 8, 9, 40]
     # Iterate over all time steps and show progress bar
     for j in alive_it(range(96)):
         start = time.time()
