@@ -200,16 +200,14 @@ def train_fdia():
             parse_measurement(SMGW_data, net)
             run_state_estimation(net)
             correct_data = net.res_bus_est
-            # Let the FDIA attack the grid at every bus
+            # Let the FDIA attack the grid at selected busses
             attack_data = fdia.random_fdia(best_attack_busses, SMGW_data)
             parse_measurement(attack_data, net)
             run_state_estimation(net)
             dataset.loc[len(dataset)] = fdia.deep_learning_fdia_build_dataset(attack_data, correct_data, net)
             differences = fdia.compute_differences(net.res_bus_est, correct_data)
-            # Plot the differences between the correct and the FDIA data
+            # Print the mean and max of the differences
             counter.loc[j] = [differences['d_p_mw'].mean(), differences['d_p_mw'].abs().max()]
-            # print(j, time.time() - start)
-        # Print the most effective bus for each value -> (Voltage: 42, Voltage Angle: 32, Power(both): 0)
         print(f"Iteration {j} Mean: ", counter.abs().mean(), "\n", "Max: ", counter.abs().max())
     fdia.plot_attack(net, best_attack_busses)
     dataset.to_csv("dataset.csv", index=False)
@@ -254,15 +252,6 @@ def find_best_attack_busses():
         # Plot the effect of the FDIA attack on the grid
         effect = effect.transpose().drop([0,1,2,3]).abs()
         effect.reset_index(drop=True, inplace=True)
-        """print(f"Maximum Effect on Voltage: Bus {effect['d_vm_pu'].idxmax()} with {effect['d_vm_pu'].max()}%, \n"
-              f"Maximum Effect on Active Power: Bus {effect['d_p_mw'].idxmax()} with {effect['d_p_mw'].max()}%, \n"
-              f"Maximum Effect on Reactive Power: Bus {effect['d_q_mvar'].idxmax()} with {effect['d_q_mvar'].max()}%, \n"
-              f"Maximum Effect on Voltage Angle: Bus {effect['d_va_degree'].idxmax()} with {effect['d_va_degree'].max()}%")
-        effect.plot(subplots=True, xlabel="Bus Number", ylabel="Difference in %",
-                    title=["Voltage Difference", "Active Power Difference", "Reactive Power Difference", "Voltage Angle Difference"])
-        plt.show()
-        fdia.plot_attack(net, [effect['d_vm_pu'].idxmax(), effect['d_va_degree'].idxmax(), effect['d_p_mw'].idxmax(),
-                          effect['d_q_mvar'].idxmax()])"""
         # Add the most effective bus to the counter
         print(j, time.time() - start)
         counter.loc[j] = effect.idxmax().values
