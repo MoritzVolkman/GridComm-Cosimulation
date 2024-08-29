@@ -137,6 +137,15 @@ def deep_learning_fdia_train_model():
     Q_min = data[Q_columns].min().min()
     Q_max = data[Q_columns].max().max()
 
+    bounds = [
+        (V_min, V_max), (P_min, P_max), (Q_min, Q_max),
+        (V_min, V_max), (P_min, P_max), (Q_min, Q_max),
+        (V_min, V_max), (P_min, P_max), (Q_min, Q_max),
+        (V_min, V_max), (P_min, P_max), (Q_min, Q_max),
+        (V_min, V_max), (P_min, P_max), (Q_min, Q_max),
+        (V_min, V_max), (P_min, P_max), (Q_min, Q_max)
+    ]
+
     # Select input features for buses 0, 1, 2, 8, 9, and 40
     input_columns = [
         'V0', 'P0', 'Q0',
@@ -189,30 +198,50 @@ def deep_learning_fdia_train_model():
     loss = model.evaluate(X_test, y_test)
     print(f'Test Loss: {loss}')
 
-    return model
+    return model, bounds
 
 
-def deep_learning_fdia_predict(model):
+def deep_learning_fdia_predict(model, bounds):
     # Use the pre-trained model to create the best possible input for the FDIA attack
-    # We utilize a genetic algorithm to find the best possible input
-    # Define our evaluation function
     def evaluate(individual):
         input_array = np.array(individual).reshape(1, -1)
         prediction = model.predict(input_array)
         return np.max(prediction),
 
+    def bounded_attr(min_val, max_val):
+        return lambda: np.random.uniform(min_val, max_val)
+
     # Create classes for the optimization problem
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
 
+    # Adjust toolbox for individual creation within bounds
     toolbox = base.Toolbox()
-    toolbox.register("attr_float", np.random.rand)
-    toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=18)
+    for i, (min_val, max_val) in enumerate(bounds):
+        toolbox.register(f"attr_float_{i}", bounded_attr(min_val, max_val))
+
+    toolbox.register(
+        "individual",
+        tools.initCycle,
+        creator.Individual,
+        [toolbox.__getattribute__(f"attr_float_{i}") for i in range(len(bounds))],
+        n=1
+    )
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
     toolbox.register("evaluate", evaluate)
     toolbox.register("mate", tools.cxBlend, alpha=0.5)
-    toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.1)
+
+    def bounded_mutate(individual, indpb):
+        for i, (min_val, max_val) in enumerate(bounds):
+            if np.random.rand() < indpb:
+                old_value = individual[i]
+                new_value = np.random.normal(old_value, 0.1)
+                new_value = np.clip(new_value, min_val, max_val)
+                individual[i] = new_value
+        return individual,
+
+    toolbox.register("mutate", bounded_mutate, indpb=0.1)
     toolbox.register("select", tools.selTournament, tournsize=3)
 
     # Genetic Algorithm settings
@@ -286,3 +315,12 @@ def plot_attack(net, attack_buses):
     for bus in bus_geodata.iterrows():
         plt.text(bus[1]["x"], bus[1]["y"], bus[0])
     plt.show()
+
+
+if __name__ == "__main__":
+    attack_vectors = []
+    for i in range(9):
+        model, bounds = deep_learning_fdia_train_model()
+        att_vector = deep_learning_fdia_predict(model, bounds)
+        attack_vectors.append(att_vector)
+    print(attack_vectors)
