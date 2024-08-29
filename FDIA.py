@@ -211,6 +211,14 @@ def deep_learning_fdia_predict(model, bounds):
     def bounded_attr(min_val, max_val):
         return lambda: np.random.uniform(min_val, max_val)
 
+    def repair(individual):
+        for i in range(len(individual)):
+            min_val, max_val = bounds[i]
+            if individual[i] < min_val:
+                individual[i] = min_val
+            elif individual[i] > max_val:
+                individual[i] = max_val
+
     # Create classes for the optimization problem
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
@@ -235,14 +243,17 @@ def deep_learning_fdia_predict(model, bounds):
     def bounded_mutate(individual, indpb):
         for i, (min_val, max_val) in enumerate(bounds):
             if np.random.rand() < indpb:
-                old_value = individual[i]
-                new_value = np.random.normal(old_value, 0.1)
-                new_value = np.clip(new_value, min_val, max_val)
-                individual[i] = new_value
+                individual[i] += np.random.normal(0, 0.1)  # Can adjust the scale
+                # Ensure the mutated value is within bounds
+                individual[i] = np.clip(individual[i], min_val, max_val)
         return individual,
 
     toolbox.register("mutate", bounded_mutate, indpb=0.1)
     toolbox.register("select", tools.selTournament, tournsize=3)
+
+    # Add repair function to ensure individuals are within bounds after crossover/mutation
+    toolbox.decorate("mate", tools.DeltaPenalty(repair, 0.0))
+    toolbox.decorate("mutate", tools.DeltaPenalty(repair, 0.0))
 
     # Genetic Algorithm settings
     population = toolbox.population(n=300)
