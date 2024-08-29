@@ -128,14 +128,14 @@ def deep_learning_fdia_train_model():
     Q_columns = [col for col in data.columns if col.startswith('Q')]
 
     # Calculate the mean and max for each set of columns
-    V_min = data[V_columns].min().min()
-    V_max = data[V_columns].max().max()
+    V_min = data[V_columns].min().min() /2
+    V_max = data[V_columns].max().max() /2
 
-    P_min = data[P_columns].min().min()
-    P_max = data[P_columns].max().max()
+    P_min = data[P_columns].min().min() /2
+    P_max = data[P_columns].max().max() /2
 
-    Q_min = data[Q_columns].min().min()
-    Q_max = data[Q_columns].max().max()
+    Q_min = data[Q_columns].min().min() /2
+    Q_max = data[Q_columns].max().max() /2
 
     bounds = [
         (V_min, V_max), (P_min, P_max), (Q_min, Q_max),
@@ -211,6 +211,15 @@ def deep_learning_fdia_predict(model, bounds):
     def bounded_attr(min_val, max_val):
         return lambda: np.random.uniform(min_val, max_val)
 
+    def repair(individual):
+        for i in range(len(individual)):
+            min_val, max_val = bounds[i]
+            if individual[i] < min_val:
+                individual[i] = min_val
+            elif individual[i] > max_val:
+                individual[i] = max_val
+        return individual
+
     # Create classes for the optimization problem
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
@@ -235,10 +244,9 @@ def deep_learning_fdia_predict(model, bounds):
     def bounded_mutate(individual, indpb):
         for i, (min_val, max_val) in enumerate(bounds):
             if np.random.rand() < indpb:
-                old_value = individual[i]
-                new_value = np.random.normal(old_value, 0.1)
-                new_value = np.clip(new_value, min_val, max_val)
-                individual[i] = new_value
+                individual[i] += np.random.normal(0, 0.1)  # Can adjust the scale
+                # Ensure the mutated value is within bounds
+                individual[i] = np.clip(individual[i], min_val, max_val)
         return individual,
 
     toolbox.register("mutate", bounded_mutate, indpb=0.1)
@@ -250,8 +258,22 @@ def deep_learning_fdia_predict(model, bounds):
     cxpb = 0.5  # Crossover probability
     mutpb = 0.2  # Mutation probability
 
+    # Define function to repair and apply it after crossover and mutation
+    def repair_population(pop):
+        for ind in pop:
+            repair(ind)
+
     # Run the genetic algorithm
-    algorithms.eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=True)
+    for gen in range(ngen):
+        offspring = algorithms.varAnd(population, toolbox, cxpb, mutpb)
+
+        repair_population(offspring)  # Ensure offspring respects bounds
+
+        fits = toolbox.map(toolbox.evaluate, offspring)
+        for fit, ind in zip(fits, offspring):
+            ind.fitness.values = fit
+
+        population = toolbox.select(offspring, len(population))
 
     # Extract the best individual
     best_individual = tools.selBest(population, k=1)[0]
@@ -319,7 +341,7 @@ def plot_attack(net, attack_buses):
 
 if __name__ == "__main__":
     attack_vectors = []
-    for i in range(9):
+    for i in range(10):
         model, bounds = deep_learning_fdia_train_model()
         att_vector = deep_learning_fdia_predict(model, bounds)
         attack_vectors.append(att_vector)
