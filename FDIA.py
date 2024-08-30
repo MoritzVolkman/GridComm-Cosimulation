@@ -148,6 +148,74 @@ def random_generalized_fdia_liu(busses, measurements, net, H):
     return measurements
 
 
+def targeted_generalized_fdia_liu(busses, measurements, net, H):
+        # Calculate tau_a from the network
+        tau_a = calculate_tau_a(net)
+
+        # Identify relevant indices not under attack
+        I_meter = net.bus.index.to_list()
+        I_meter.remove(129)  # Remove transformer MV bus
+        for bus in busses:
+            I_meter.remove(bus)  # Remove attacked buses
+
+        m, n = H.shape
+        H = H.astype(float)
+        B_s_prime = np.copy(H)
+
+        # Process H to form B_s'
+        for j in I_meter:
+            swap_col = -1
+            for i in range(n):
+                if B_s_prime[j, i] != 0:
+                    swap_col = i
+                    break
+
+            if swap_col == -1:
+                continue
+
+            B_s_prime[:, [0, swap_col]] = B_s_prime[:, [swap_col, 0]]
+
+            for i in range(1, n):
+                if B_s_prime[j, i] != 0:
+                    factor = B_s_prime[j, i] / B_s_prime[j, 0]
+                    B_s_prime[:, i] -= factor * B_s_prime[:, 0]
+
+        # Set a fixed vector b that offers rank consistency
+        b = np.zeros(m)
+        k = len(I_meter)
+        random_indices = np.random.choice(range(m), k, replace=False)
+        b[random_indices] = np.random.rand(k)
+
+        # Calculate Bs(w) and Bs(t + b)
+        w = b.copy()
+        t = np.zeros(m)
+
+        # Check if the norm condition is satisfied
+        norm_condition = np.sqrt(np.sum(b[random_indices] ** 2))
+        if norm_condition <= tau_a:
+            t[random_indices] = b[random_indices]  # Ensure t's 2-Norm <= tau_a by setting parts of t equal to b
+        else:
+            # Return unaltered measurements if the condition is not satisfied
+            return measurements
+
+        tw_plus_b = t + b
+
+        # Solve B_s'a' = B_s(t + b)
+        B_s_tw_plus_b = B_s_prime @ tw_plus_b
+        B_s_prime_inv = np.linalg.pinv(B_s_prime)
+
+        a_prime = B_s_prime_inv @ B_s_tw_plus_b
+
+        # Apply attack vector a' to measurements
+        for bus in busses:
+            for measurement in measurements:
+                if measurement["UserInformation"]["ConsumerID"] == bus:
+                    index = net.bus.index.get_loc(bus)
+                    measurement["MeasurementData"]["ActivePower"] += a_prime[index]
+                    measurement["MeasurementData"]["ReactivePower"] += a_prime[index]
+
+        return measurements
+
 def deep_learning_fdia_build_dataset(measurements, original_vals, net):
     # Get the voltage, ActivePower and ReactivePower for each bus from measurements
     # And put them in a format like this: [voltage0, active_power0, reactive_power0, voltage1,...]

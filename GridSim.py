@@ -198,13 +198,13 @@ def train_fdia():
             correct_data = net.res_bus_est
             # Let the FDIA attack the grid at selected busses
             # attack_data = fdia.deep_learning_fdia_inject(att_vec, best_attack_busses, SMGW_data)
-            attack_data = fdia.random_generalized_fdia_liu(best_attack_busses, SMGW_data, net, H)
+            attack_data = fdia.targeted_generalized_fdia_liu(best_attack_busses, SMGW_data, net, H)
             parse_measurement(attack_data, net)
             run_state_estimation(net)
             differences = fdia.compute_differences(net.res_bus_est, correct_data)
             # Print the mean and max of the differences
             counter.loc[j] = [differences['d_p_mw'].mean(), differences['d_p_mw'].abs().max()]
-        print(f"Iteration {i} Mean: ", counter.abs().mean().values, "\n", "Max: ", counter.abs().max().values)
+        print(f"Iteration {i}: \nMean: ", counter.abs().mean().values, "\n", "Max: ", counter.abs().max().values)
     fdia.plot_attack(net, best_attack_busses)
 
 def find_best_attack_busses():
