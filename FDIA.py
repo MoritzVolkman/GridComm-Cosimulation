@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -459,8 +461,12 @@ def plot_attack(net, attack_buses):
 
 if __name__ == "__main__":
     attack_vectors = []
+    start = time.time()
     for i in range(10):
+        start_i = time.time()
         model, bounds = deep_learning_fdia_train_model()
         att_vector = deep_learning_fdia_predict(model, bounds)
         attack_vectors.append(att_vector)
+        print("Execution time: ", time.time()-start_i)
+    print("Average execution time: ", time.time()-start)
     print(attack_vectors)
