@@ -245,21 +245,15 @@ def deep_learning_fdia_train_model():
     # Load the dataset
     data = pd.read_csv('dataset.csv')
 
-    # Find upper and lower limits for the input variables to pass bad data detection
-    # Extract columns for V, P, and Q
-    V_columns = [col for col in data.columns if col.startswith('V')]
-    P_columns = [col for col in data.columns if col.startswith('P')]
-    Q_columns = [col for col in data.columns if col.startswith('Q')]
+    # Set the min and max bounds for the input features
+    V_min = 0.95
+    V_max = 1.05
 
-    # Calculate the mean and max for each set of columns
-    V_min = data[V_columns].min().min() /2
-    V_max = data[V_columns].max().max() /2
+    P_min = 10e-06
+    P_max = 10e-02
 
-    P_min = data[P_columns].min().min() /2
-    P_max = data[P_columns].max().max() /2
-
-    Q_min = data[Q_columns].min().min() /2
-    Q_max = data[Q_columns].max().max() /2
+    Q_min = -10e-05
+    Q_max = 10e-05
 
     bounds = [
         (V_min, V_max), (P_min, P_max), (Q_min, Q_max),
