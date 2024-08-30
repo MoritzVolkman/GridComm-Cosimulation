@@ -32,17 +32,7 @@ def random_fdia(busses, measurements):
 
 
 def uninformed_fdia(busses, measurements):
-    # Select the JSON object from the list where the "ConsumerID" matches the bus
-    # Add values to the ActivePower, ReactivePower and Voltage that try to make the system unstable
-    # ActivePower and ReactivePower should be high, Voltage should be low
-    # The FDIA should try to bypass the bad data detection
-    for bus in busses:
-        for measurement in measurements:
-            if measurement["UserInformation"]["ConsumerID"] == bus:
-                measurement["MeasurementData"]["ActivePower"] = 0.3
-                measurement["MeasurementData"]["ReactivePower"] = -0.005
-                measurement["MeasurementData"]["Voltage"] = 0.999
-
+    pass
 
 def random_fdia_liu(busses, measurements,  net, H):
     # Random FDIA attack using the Liu method
@@ -89,6 +79,72 @@ def random_fdia_liu(busses, measurements,  net, H):
             if measurement["UserInformation"]["ConsumerID"] == bus:
                 measurement["MeasurementData"]["ActivePower"] += column.item(bus, 0)
                 measurement["MeasurementData"]["ReactivePower"] += column.item(bus, 0)
+    return measurements
+
+
+def calculate_tau_a(net):
+    # Calculate total active power demand in the network
+    total_load = net.load['p_mw'].sum()
+
+    # Set tau_a as a fraction of the total load, e.g., 5% of total load
+    tau_a = total_load * 0.05
+    return tau_a
+
+
+def random_generalized_fdia_liu(busses, measurements, net, H):
+    # Calculate tau_a from the network
+    tau_a = calculate_tau_a(net)
+
+    # Prepare the index of meters
+    I_meter = net.bus.index.to_list()
+    I_meter.remove(129)  # Remove transformer MV bus
+    for bus in busses:
+        I_meter.remove(bus)  # Remove attacked buses
+
+    m, n = H.shape
+    H = H.astype(float)  # Ensure numerical stability
+    B_prime = np.copy(H)  # Start with H, which will be reduced to B'
+
+    for j in I_meter:
+        swap_col = -1
+        for i in range(n):  # Find a column with a non-zero j-th element
+            if B_prime[j, i] != 0:
+                swap_col = i
+                break
+
+        if swap_col == -1:
+            continue  # Skip if no column to swap
+
+        # Swap the found column with the first column
+        B_prime[:, [0, swap_col]] = B_prime[:, [swap_col, 0]]
+
+        # Zero out the j-th element for each column
+        for i in range(1, n):
+            if B_prime[j, i] != 0:
+                factor = B_prime[j, i] / B_prime[j, 0]
+                B_prime[:, i] -= factor * B_prime[:, 0]
+
+    # Create target vector t ensuring consistency
+    t = np.zeros(m)
+    k = len(I_meter)
+    random_indices = np.random.choice(range(m), k, replace=False)
+    t[random_indices] = np.random.rand(k) * tau_a
+
+    # Solve for a'
+    Bt = B_prime @ t
+    B_prime_inv = np.linalg.pinv(B_prime)  # Pseudo-inverse
+    d = np.random.rand(n)  # Random vector in case of null-space solution
+
+    a_prime = B_prime_inv @ Bt + (np.eye(n) - B_prime_inv @ B_prime) @ d
+
+    # Apply attack vector a_prime to measurements
+    for bus in busses:
+        for measurement in measurements:
+            if measurement["UserInformation"]["ConsumerID"] == bus:
+                index = net.bus.index.get_loc(bus)
+                measurement["MeasurementData"]["ActivePower"] += a_prime[index]
+                measurement["MeasurementData"]["ReactivePower"] += a_prime[index]
+
     return measurements
 
 
