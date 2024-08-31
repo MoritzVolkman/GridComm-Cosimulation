@@ -90,6 +90,7 @@ def calculate_tau_a(net):
 
     # Set tau_a as a fraction of the total load, e.g., 5% of total load
     tau_a = total_load * 0.05
+    # tau_a = total_load * 0.5
     return tau_a
 
 
@@ -151,76 +152,70 @@ def random_generalized_fdia_liu(busses, measurements, net, H):
 
 
 def targeted_generalized_fdia_liu(busses, measurements, net, H):
-    # Calculate tau_a from the network
-    tau_a = calculate_tau_a(net)
+    # Example calculation of tau_a
+    total_load = np.sum([measurement["MeasurementData"]["ActivePower"] for measurement in measurements])
+    tau_a = total_load * 0.5
 
-    # Identify relevant indices not under attack
     I_meter = net.bus.index.to_list()
-    I_meter.remove(129)  # Remove transformer MV bus
+    if 129 in I_meter:
+        I_meter.remove(129)  # Remove transformer MV bus
     for bus in busses:
         if bus in I_meter:
             I_meter.remove(bus)  # Remove attacked buses
 
-    m, n = H.shape
     H = H.astype(float)
-    B_s_prime = np.copy(H)
+    m, n = H.shape
 
-    # Process H to form B_s'
-    # Start processing each column in the original I_meter to zero out
-    for j in sorted(I_meter):
-        swap_col = -1
-        # Find a column with a non-zero j-th element
-        for i in range(n):
-            if B_s_prime[j, i] != 0:
-                swap_col = i
-                break
+    # Basic transformation construction
+    try:
+        for idx in sorted(I_meter):
+            column_found = False
+            for col in range(n):
+                if H[idx, col] != 0:
+                    H[:, [0, col]] = H[:, [col, 0]]
+                    column_found = True
+                    break
 
-        if swap_col == -1:
-            continue  # No valid column found
+            if not column_found:
+                continue
 
-        # Swap the found column to the first position
-        B_s_prime[:, [0, swap_col]] = B_s_prime[:, [swap_col, 0]]
+            for col in range(1, n):  # Start from 1 since we just swapped column 0
+                if H[idx, col] != 0:
+                    factor = H[idx, col] / H[idx, 0]
+                    H[:, col] -= factor * H[:, 0]
 
-        for i in range(1, n):
-            if B_s_prime[j, i] != 0:
-                factor = B_s_prime[j, i] / B_s_prime[j, 0]
-                B_s_prime[:, i] -= factor * B_s_prime[:, 0]
+    except Exception as e:
+        print(f"Error in transforming H: {e}")
 
-    # Set a fixed vector b that offers rank consistency
+    # Create attack vector b, and ensure norm conditions
     b = np.zeros(m)
     k = len(I_meter)
-
-    # Ensure that the selection of random indices adheres to range constraints
     random_indices = np.random.choice(range(m), k, replace=False)
     b[random_indices] = np.random.rand(k)
 
-    # Attempt at matching the vector norms as per the guidelines
-    w = b.copy()
-    t = np.zeros(m)
-
-    # Check if the norm condition is satisfied
-    norm_condition = np.sqrt(np.sum(b[random_indices] ** 2))
-    if norm_condition <= tau_a:
-        t[random_indices] = b[random_indices]  # Ensure t's 2-Norm <= tau_a
+    norm_b = np.linalg.norm(b)
+    if norm_b <= tau_a:
+        t = np.zeros(m)
+        t[random_indices] = b[random_indices]
     else:
-        print("could not calculate an attack vector")
-        return measurements  # Cannot proceed, condition not met for any configuration
+        return measurements
 
     tw_plus_b = t + b
 
-    # Solve B_s'a' = B_s(t + b)
-    B_s_tw_plus_b = B_s_prime @ tw_plus_b
-    B_s_prime_inv = np.linalg.pinv(B_s_prime)
+    B_s_tw_plus_b = H @ tw_plus_b
 
-    a_prime = B_s_prime_inv @ B_s_tw_plus_b
+    try:
+        a_prime = np.linalg.pinv(H) @ B_s_tw_plus_b
+    except np.linalg.LinAlgError as e:
+        print(f"Matrix inversion error: {e}")
+        return measurements
 
-    # Apply attack vector a_prime to measurements
+    # Apply to measurement attack vectors
     for bus in busses:
         for measurement in measurements:
             if measurement["UserInformation"]["ConsumerID"] == bus:
-                index = net.bus.index.get_loc(bus)
-                measurement["MeasurementData"]["ActivePower"] += a_prime[index]
-                measurement["MeasurementData"]["ReactivePower"] += a_prime[index]
+                measurement["MeasurementData"]["ActivePower"] += a_prime[net.bus.index.get_loc(bus)]
+                measurement["MeasurementData"]["ReactivePower"] += a_prime[net.bus.index.get_loc(bus)]
 
     return measurements
 
@@ -464,15 +459,3 @@ def plot_attack(net, attack_buses):
         plt.text(bus[1]["x"], bus[1]["y"], bus[0])
     plt.show()
 
-
-if __name__ == "__main__":
-    attack_vectors = []
-    start = time.time()
-    for i in range(10):
-        start_i = time.time()
-        model, bounds = deep_learning_fdia_train_model()
-        att_vector = deep_learning_fdia_predict(model, bounds)
-        attack_vectors.append(att_vector)
-        print("Execution time: ", time.time()-start_i)
-    print("Average execution time: ", time.time()-start)
-    print(attack_vectors)
