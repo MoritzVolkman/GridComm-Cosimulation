@@ -35,6 +35,6 @@ This is how the Program should work once it is finished:
 
 - random FDIA
 - random FDIA according to Liu et al. 2011
-- targeted FDIA according to Liu et al. 2011 (WIP)
-- Machine Learning FDIA (WIP)
+- Machine Learning FDIA
 - uninformed FDIA (WIP)
+- targeted FDIA according to Liu et al. 2011 (WIP)
