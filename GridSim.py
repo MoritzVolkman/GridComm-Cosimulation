@@ -5,6 +5,9 @@ import pandapower
 import math
 import pandas as pd
 import simbench as sb
+from pandapower import diagnostic
+from pandapower import contingency
+
 import FDIA as fdia
 import matplotlib.pyplot as plt
 import Network
@@ -164,38 +167,67 @@ def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
             net[elm].loc[:, param] = absolute_values_dict[elm_param].loc[case_or_time_step]
 
 
-def check_grid_health(net):
-    fault_counter = 0
-    for line in net.line.index:
-        if net.line.loc[line, "loading_percent"] > 100:
-            print(f"Line {line} is overloaded")
-            fault_counter += 1
-    for trafo in net.trafo.index:
-        if net.trafo.loc[trafo, "loading_percent"] > 100:
-            print(f"Transformer {trafo} is overloaded")
-            fault_counter += 1
-    if not fault_counter:
-        print("Grid is healthy")
+def check_grid_health(net, verbose=False):
+    diagnostic = pandapower.diagnostic(net, report_style="None")
+    nminus1_cases = {"line": {"index": net.line.index.values}}
+    contingencies = pandapower.contingency.run_contingency(net, nminus1_cases)
+    if verbose:
+        print(diagnostic)
+        print(contingencies)
+    else:
+        if 'overload' in diagnostic:
+            print(f" Overloads: {diagnostic['overload']}")
+            print(contingencies)
+        if 'isolated_sections' in diagnostic:
+            print(f" Overloads: isolated sections: {diagnostic['isolated_sections']} \n ")
+            print(contingencies)
+        if "causes_overloading" in contingencies['trafo'] == [True]:
+            print("Trafo is overloaded because of the following lines: \n")
+            print(f"Index of cause {contingencies['trafo']['cause_index']} \n max loading percent {contingencies['trafo']['max_loading_percent']} \n")
+        else:
+            print("Grid is healthy \n")
+
+
 
 def run_sim_with_stateest_for_powerflow():
     # Load the Simbench data and configure the grid
     sb_code = "1-LV-semiurb4--0-sw"
     net = sb.get_simbench_net(sb_code)
     profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
+    liu_counter = 0
     for i in range(96):
         net.trafo.tap_pos = 1
         if i:
             # apply the values from the state estimation to be used in the power flow calculation
-            apply_absolute_values(net, net.res_bus_est, i)
-            pandapower.runpp(net, calculate_voltage_angles=True, init="results")
+            for bus in net.res_bus_est.index:
+                net["bus"].loc[bus, "p_mw"] = net.res_bus_est.loc[bus, "p_mw"]
+                net["bus"].loc[bus, "q_mvar"] = net.res_bus_est.loc[bus, "q_mvar"]
+            pandapower.runpp(net, calculate_voltage_angles=True)
         else:
             apply_absolute_values(net, profiles, i)
             pandapower.runpp(net, calculate_voltage_angles=True)
-        check_grid_health(net)
         SMGW_data = create_measurement(net)
-        attack_data = fdia.random_fdia([0,1,2,8,9,40], SMGW_data)
-        parse_measurement(attack_data, net)
+        try:
+            H = net._ppc["internal"]["J"].todense()
+        except AttributeError:
+            print("Jacobian Matrix not found")
+            parse_measurement(SMGW_data, net)
+            run_state_estimation(net)
+            correct_data = net.res_bus_est
+            check_grid_health(net)
+            attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
+            parse_measurement(attack_data, net)
+        else:
+            parse_measurement(SMGW_data, net)
+            run_state_estimation(net)
+            correct_data = net.res_bus_est
+            check_grid_health(net)
+            attack_data = fdia.random_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
+            parse_measurement(attack_data, net)
+            liu_counter += 1
         run_state_estimation(net)
+        fdia.plot_differences(correct_data, net.res_bus_est)
+        print(f"Percentage of Liu attacks {liu_counter/(i+1)}")
 
 def train_fdia():
     sb_code = "1-LV-semiurb4--0-sw"
