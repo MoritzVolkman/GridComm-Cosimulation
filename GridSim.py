@@ -164,6 +164,39 @@ def apply_absolute_values(net, absolute_values_dict, case_or_time_step):
             net[elm].loc[:, param] = absolute_values_dict[elm_param].loc[case_or_time_step]
 
 
+def check_grid_health(net):
+    fault_counter = 0
+    for line in net.line.index:
+        if net.line.loc[line, "loading_percent"] > 100:
+            print(f"Line {line} is overloaded")
+            fault_counter += 1
+    for trafo in net.trafo.index:
+        if net.trafo.loc[trafo, "loading_percent"] > 100:
+            print(f"Transformer {trafo} is overloaded")
+            fault_counter += 1
+    if not fault_counter:
+        print("Grid is healthy")
+
+def run_sim_with_stateest_for_powerflow():
+    # Load the Simbench data and configure the grid
+    sb_code = "1-LV-semiurb4--0-sw"
+    net = sb.get_simbench_net(sb_code)
+    profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
+    for i in range(96):
+        net.trafo.tap_pos = 1
+        if i:
+            # apply the values from the state estimation to be used in the power flow calculation
+            apply_absolute_values(net, net.res_bus_est, i)
+            pandapower.runpp(net, calculate_voltage_angles=True, init="results")
+        else:
+            apply_absolute_values(net, profiles, i)
+            pandapower.runpp(net, calculate_voltage_angles=True)
+        check_grid_health(net)
+        SMGW_data = create_measurement(net)
+        attack_data = fdia.random_fdia([0,1,2,8,9,40], SMGW_data)
+        parse_measurement(attack_data, net)
+        run_state_estimation(net)
+
 def train_fdia():
     sb_code = "1-LV-semiurb4--0-sw"
     net = sb.get_simbench_net(sb_code)
@@ -267,6 +300,7 @@ def find_best_attack_busses():
 if __name__ == "__main__":
     # main()
     # receive_from_network_sim()
-    train_fdia()
+    # train_fdia()
+    run_sim_with_stateest_for_powerflow()
 
 
