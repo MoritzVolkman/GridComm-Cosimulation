@@ -416,12 +416,14 @@ def deep_learning_fdia_inject(att_vector, busses, measurements):
 
 
 def plot_differences(correct_data, fdia_data):
-    # Plot the differences between the correct and the FDIA data
-    # The differences are calculated as the difference between the correct and the FDIA data
-    # The differences are then plotted for each bus
+    # Compute the differences
     differences = compute_differences(correct_data, fdia_data)
+
+    # Compute the mean of each column
+    mean_differences = differences.mean()
     print("Average Differences in %: ")
-    print(differences.mean())
+    print(mean_differences)
+    # Plot the differences
     axes = differences.iloc[0:42].plot(
         subplots=True,
         xlabel="Bus Number",
@@ -429,12 +431,21 @@ def plot_differences(correct_data, fdia_data):
         figsize=(12.8, 7.2),
         title=["Voltage Difference", "Voltage Angle Difference", "Active Power Difference", "Reactive Power Difference"]
     )
-
-    # Adjust each subplot to have y-axis ticks and labels on the right
-    for ax in axes:
+    # Adjust each subplot to have y-axis ticks and labels on the right, and add the mean lines and annotations
+    for i, ax in enumerate(axes):
+        # Adjust y-axis
         ax.yaxis.tick_right()
         ax.yaxis.set_label_position("left")
-
+        # Add a horizontal line for the mean
+        ax.axhline(y=mean_differences.iloc[i], color='k', linestyle='--', linewidth=1.5)
+        # Annotate the mean value
+        ax.text(
+            0.95, 0.95, f'Mean: {round(mean_differences.iloc[i], 3):.2f}%',
+            transform=ax.transAxes, fontsize=9,
+            verticalalignment='top', horizontalalignment='right',
+            bbox=dict(facecolor='white', alpha=0.5)
+        )
+    plt.tight_layout()
     plt.show()
     return differences
 
