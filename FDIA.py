@@ -422,9 +422,19 @@ def plot_differences(correct_data, fdia_data):
     differences = compute_differences(correct_data, fdia_data)
     print("Average Differences in %: ")
     print(differences.mean())
-    differences.iloc[0:42].plot(subplots=True,xlabel="Bus Number", ylabel="Difference in %",
-                     title=["Voltage Difference","Voltage Angle Difference",
-                            "Active Power Difference", "Reactive Power Difference"])
+    axes = differences.iloc[0:42].plot(
+        subplots=True,
+        xlabel="Bus Number",
+        ylabel="Difference in %",
+        figsize=(12.8, 7.2),
+        title=["Voltage Difference", "Voltage Angle Difference", "Active Power Difference", "Reactive Power Difference"]
+    )
+
+    # Adjust each subplot to have y-axis ticks and labels on the right
+    for ax in axes:
+        ax.yaxis.tick_right()
+        ax.yaxis.set_label_position("left")
+
     plt.show()
     return differences
 
