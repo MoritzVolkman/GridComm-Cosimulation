@@ -453,7 +453,7 @@ def plot_differences(correct_data, fdia_data):
 def plot_mean_and_std(differences_list):
     # Combine all differences into a single DataFrame
     all_differences = pd.concat(differences_list, keys=range(len(differences_list)), names=['Timestep'])
-    list_of_colors = ["b", "y", "g", "r"]
+    list_of_colors = ["b", "tab:orange", "g", "r"]
     list_of_labels = ["Voltage Magnitude", "Voltage Angle", "Active Power", "Reactive Power"]
 
     # Compute mean and standard deviation per node and measurement type
@@ -471,8 +471,8 @@ def plot_mean_and_std(differences_list):
     # Plot each measurement type
     for i, measurement in enumerate(measurement_types):
         ax = axes[i]
-        mean_values = means[measurement]
-        std_values = stds[measurement]
+        mean_values = means.iloc[0:42][measurement]
+        std_values = stds.iloc[0:42][measurement]
 
         ax.plot(mean_values.index, mean_values, label=f'Mean {list_of_labels[i]}', color=list_of_colors[i])
         ax.fill_between(mean_values.index, mean_values - std_values, mean_values + std_values, alpha=0.3, color=list_of_colors[i],
@@ -480,6 +480,8 @@ def plot_mean_and_std(differences_list):
 
         # Customize plot
         ax.set_ylabel('% Difference')
+        ax.yaxis.tick_right()
+        ax.yaxis.set_label_position("left")
         ax.set_title(list_of_labels[i])
         ax.legend()
 
