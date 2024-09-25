@@ -450,12 +450,17 @@ def plot_differences(correct_data, fdia_data):
     return differences
 
 
-def compute_differences(correct_data, fdia_data):
-    # Computes the percentage differences between the correct and the FDIA data and puts them in the differences dataframe
+def compute_differences(correct_data, fdia_data, epsilon=1e-6):
+    # Computes the percentage differences between the correct and the FDIA data
     # The differences are calculated as (FDIA - Correct) / Correct * 100
+    # Epsilon is a small value to prevent division by very small numbers
     differences = pd.DataFrame()
+
     for column in correct_data.columns:
-        differences[f"d_{column}"] = ((fdia_data[column] - correct_data[column]) / correct_data[column]) * 100
+        # Avoid division by zero or near-zero by using np.where
+        denominator = correct_data[column].replace(0, epsilon)
+        differences[f"d_{column}"] = ((fdia_data[column] - correct_data[column]) / denominator) * 100
+
     return differences
 
 
