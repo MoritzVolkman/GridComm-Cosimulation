@@ -195,7 +195,9 @@ def run_sim_with_stateest_for_powerflow():
     net = sb.get_simbench_net(sb_code)
     profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
     liu_counter = 0
-    for i in range(96):
+    all_differences = []
+    num_timesteps = 10
+    for i in range(num_timesteps):
         net.trafo.tap_pos = 1
         if i:
             # apply the values from the state estimation to be used in the power flow calculation
@@ -226,8 +228,10 @@ def run_sim_with_stateest_for_powerflow():
             parse_measurement(attack_data, net)
             liu_counter += 1
         run_state_estimation(net)
-        fdia.plot_differences(correct_data, net.res_bus_est)
+        differences = fdia.plot_differences(correct_data, net.res_bus_est)
+        all_differences.append(differences)
         print(f"Percentage of Liu attacks {liu_counter/(i+1)}")
+    fdia.plot_mean_and_std(all_differences)
 
 def train_fdia():
     sb_code = "1-LV-semiurb4--0-sw"

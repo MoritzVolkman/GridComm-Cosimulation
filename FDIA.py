@@ -450,6 +450,44 @@ def plot_differences(correct_data, fdia_data):
     return differences
 
 
+def plot_mean_and_std(differences_list):
+    # Combine all differences into a single DataFrame
+    all_differences = pd.concat(differences_list, keys=range(len(differences_list)), names=['Timestep'])
+    list_of_colors = ["b", "y", "g", "r"]
+    list_of_labels = ["Voltage Magnitude", "Voltage Angle", "Active Power", "Reactive Power"]
+
+    # Compute mean and standard deviation per node and measurement type
+    means = all_differences.groupby(level=1).mean()  # Mean over timesteps
+    stds = all_differences.groupby(level=1).std()  # Standard deviation over timesteps
+
+    # Plot settings
+    measurement_types = means.columns
+    num_measurement_types = len(measurement_types)
+    fig, axes = plt.subplots(nrows=num_measurement_types, figsize=(12.8, 7.2), sharex=True)
+
+    if num_measurement_types == 1:
+        axes = [axes]  # Ensure axes is always a list, even if there's only one subplot
+
+    # Plot each measurement type
+    for i, measurement in enumerate(measurement_types):
+        ax = axes[i]
+        mean_values = means[measurement]
+        std_values = stds[measurement]
+
+        ax.plot(mean_values.index, mean_values, label=f'Mean {list_of_labels[i]}', color=list_of_colors[i])
+        ax.fill_between(mean_values.index, mean_values - std_values, mean_values + std_values, alpha=0.3, color=list_of_colors[i],
+                        label=f'Std Dev {list_of_labels[i]}')
+
+        # Customize plot
+        ax.set_ylabel('% Difference')
+        ax.set_title(list_of_labels[i])
+        ax.legend()
+
+    ax.set_xlabel('Bus Number')
+    plt.tight_layout()
+    plt.show()
+
+
 def compute_differences(correct_data, fdia_data, epsilon=1e-6):
     # Computes the percentage differences between the correct and the FDIA data
     # The differences are calculated as (FDIA - Correct) / Correct * 100
