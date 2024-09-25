@@ -423,8 +423,8 @@ def plot_differences(correct_data, fdia_data):
     print("Average Differences in %: ")
     print(differences.mean())
     differences.iloc[0:42].plot(subplots=True,xlabel="Bus Number", ylabel="Difference in %",
-                     title=["Voltage Difference", "Active Power Difference",
-                            "Reactive Power Difference", "Voltage Angle Difference"])
+                     title=["Voltage Difference","Voltage Angle Difference",
+                            "Active Power Difference", "Reactive Power Difference"])
     plt.show()
     return differences
 
