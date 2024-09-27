@@ -181,11 +181,18 @@ def check_grid_health(net, verbose=False):
         if 'isolated_sections' in diagnostic:
             print(f" Overloads: isolated sections: {diagnostic['isolated_sections']} \n ")
             print(contingencies)
+            bus_counter = 0
+            for isolated_section in diagnostic['isolated_sections']:
+                for bus in isolated_section:
+                    bus_counter += 1
+            return bus_counter / len(net.bus)
         if "causes_overloading" in contingencies['trafo'] == [True]:
             print("Trafo is overloaded because of the following lines: \n")
             print(f"Index of cause {contingencies['trafo']['cause_index']} \n max loading percent {contingencies['trafo']['max_loading_percent']} \n")
+            return 1.0
         else:
             print("Grid is healthy \n")
+            return 0.0
 
 
 
@@ -195,8 +202,9 @@ def run_sim_with_stateest_for_powerflow():
     net = sb.get_simbench_net(sb_code)
     profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
     liu_counter = 0
+    grid_health = 0
     all_differences = []
-    num_timesteps = 10
+    num_timesteps = 96
     for i in range(num_timesteps):
         net.trafo.tap_pos = 1
         if i:
@@ -216,22 +224,24 @@ def run_sim_with_stateest_for_powerflow():
             parse_measurement(SMGW_data, net)
             run_state_estimation(net)
             correct_data = net.res_bus_est
-            check_grid_health(net)
+            grid_health += check_grid_health(net)
             attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
             parse_measurement(attack_data, net)
         else:
             parse_measurement(SMGW_data, net)
             run_state_estimation(net)
             correct_data = net.res_bus_est
-            check_grid_health(net)
-            attack_data = fdia.random_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
+            grid_health += check_grid_health(net)
+            # attack_data = fdia.random_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
+            attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
             parse_measurement(attack_data, net)
             liu_counter += 1
         run_state_estimation(net)
         differences = fdia.plot_differences(correct_data, net.res_bus_est)
         all_differences.append(differences)
         print(f"Percentage of Liu attacks {liu_counter/(i+1)}")
-    fdia.plot_mean_and_std(all_differences)
+    print(f"Mean Effect: {fdia.plot_mean_and_std(all_differences)}")
+    print(f"Grid Health: \n{grid_health/num_timesteps}")
 
 def train_fdia():
     sb_code = "1-LV-semiurb4--0-sw"

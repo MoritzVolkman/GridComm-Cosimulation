@@ -460,6 +460,9 @@ def plot_mean_and_std(differences_list):
     means = all_differences.groupby(level=1).mean()  # Mean over timesteps
     stds = all_differences.groupby(level=1).std()  # Standard deviation over timesteps
 
+    # Overall mean for each measurement type for all nodes
+    overall_means = means.mean()
+
     # Plot settings
     measurement_types = means.columns
     num_measurement_types = len(measurement_types)
@@ -474,9 +477,21 @@ def plot_mean_and_std(differences_list):
         mean_values = means.iloc[0:42][measurement]
         std_values = stds.iloc[0:42][measurement]
 
-        ax.plot(mean_values.index, mean_values, label=f'Mean {list_of_labels[i]}', color=list_of_colors[i])
-        ax.fill_between(mean_values.index, mean_values - std_values, mean_values + std_values, alpha=0.3, color=list_of_colors[i],
-                        label=f'Std Dev {list_of_labels[i]}')
+        ax.plot(mean_values.index, mean_values, label=f'Mean', color=list_of_colors[i])
+        ax.fill_between(mean_values.index, mean_values - std_values, mean_values + std_values,
+                        alpha=0.3, color=list_of_colors[i], label=f'Standard Deviation')
+
+        # Plot the overall mean as a dotted line
+        overall_mean = overall_means[measurement]
+        ax.axhline(overall_mean, color='black', linestyle=':', linewidth=1, label='Overall Mean')
+
+        # Get rid of bug that shows overall means as large numbers although they are clearly zero
+        if overall_mean > 1.0e10 or overall_mean < -1.0e10:
+            overall_mean = 0
+        # Annotate the overall mean value in the plot
+        ax.text(0.95, 0.95, f'Overall mean: {overall_mean:.5f}%', transform=ax.transAxes, fontsize=10,
+                verticalalignment='top', horizontalalignment='right',
+                bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.5'))
 
         # Customize plot
         ax.set_ylabel('% Difference')
@@ -488,6 +503,8 @@ def plot_mean_and_std(differences_list):
     ax.set_xlabel('Bus Number')
     plt.tight_layout()
     plt.show()
+    return overall_means
+
 
 
 def compute_differences(correct_data, fdia_data, epsilon=1e-6):
