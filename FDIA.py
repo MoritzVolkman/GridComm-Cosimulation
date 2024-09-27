@@ -463,6 +463,9 @@ def plot_mean_and_std(differences_list):
     # Overall mean for each measurement type for all nodes
     overall_means = means.mean()
 
+    # Find the highest absolute value of the means and the corresponding standard deviation
+    highest_abs_value_info = {}
+
     # Plot settings
     measurement_types = means.columns
     num_measurement_types = len(measurement_types)
@@ -476,6 +479,13 @@ def plot_mean_and_std(differences_list):
         ax = axes[i]
         mean_values = means.iloc[0:42][measurement]
         std_values = stds.iloc[0:42][measurement]
+
+        # Calculate highest absolute value of mean differences
+        highest_abs_value = mean_values.abs().max()
+        bus_index = mean_values.abs().idxmax()
+        standard_dev_bus = std_values.loc[bus_index]
+
+        highest_abs_value_info[measurement] = (bus_index, highest_abs_value, standard_dev_bus)
 
         ax.plot(mean_values.index, mean_values, label=f'Mean', color=list_of_colors[i])
         ax.fill_between(mean_values.index, mean_values - std_values, mean_values + std_values,
@@ -498,11 +508,17 @@ def plot_mean_and_std(differences_list):
         ax.yaxis.tick_right()
         ax.yaxis.set_label_position("left")
         ax.set_title(list_of_labels[i])
-        ax.legend()
+        ax.legend(loc='lower left')  # Set legend to the bottom left corner
 
     ax.set_xlabel('Bus Number')
     plt.tight_layout()
     plt.show()
+
+    # Print out the highest absolute value info for each measurement type
+    for measurement, (bus_index, highest_abs_value, standard_dev_bus) in highest_abs_value_info.items():
+        print(f"Highest absolute value of nodal mean deviations for {measurement} at bus {bus_index}, "
+              f"deviation: {highest_abs_value:.5f} +- {standard_dev_bus:.5f}")
+
     return overall_means
 
 

@@ -195,7 +195,6 @@ def check_grid_health(net, verbose=False):
             return 0.0
 
 
-
 def run_sim_with_stateest_for_powerflow():
     # Load the Simbench data and configure the grid
     sb_code = "1-LV-semiurb4--0-sw"
@@ -232,14 +231,15 @@ def run_sim_with_stateest_for_powerflow():
             run_state_estimation(net)
             correct_data = net.res_bus_est
             grid_health += check_grid_health(net)
-            # attack_data = fdia.random_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
-            attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
+            # attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
+            # attack_data = fdia.random_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
+            attack_data = fdia.random_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
             parse_measurement(attack_data, net)
             liu_counter += 1
         run_state_estimation(net)
-        differences = fdia.plot_differences(correct_data, net.res_bus_est)
+        differences = fdia.compute_differences(correct_data, net.res_bus_est)
         all_differences.append(differences)
-        print(f"Percentage of Liu attacks {liu_counter/(i+1)}")
+    print(f"Percentage of Non-random attacks: {liu_counter/(i+1)}")
     print(f"Mean Effect: {fdia.plot_mean_and_std(all_differences)}")
     print(f"Grid Health: \n{grid_health/num_timesteps}")
 
