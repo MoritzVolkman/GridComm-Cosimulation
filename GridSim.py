@@ -205,6 +205,7 @@ def run_sim_with_stateest_for_powerflow():
     all_differences = []
     num_timesteps = 96
     model, bounds = fdia.deep_learning_fdia_train_model()
+    attack_vector = fdia.deep_learning_fdia_predict(model, bounds)
     for i in range(num_timesteps):
         net.trafo.tap_pos = 1
         if i:
@@ -236,7 +237,6 @@ def run_sim_with_stateest_for_powerflow():
             # attack_data = fdia.random_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
             # attack_data = fdia.random_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
             # attack_data = fdia.targeted_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
-            attack_vector = fdia.deep_learning_fdia_predict(model, bounds)
             attack_data = fdia.deep_learning_fdia_inject(attack_vector, [0, 1, 2, 8, 9, 40], SMGW_data)
             parse_measurement(attack_data, net)
             liu_counter += 1
