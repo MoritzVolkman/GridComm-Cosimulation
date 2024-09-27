@@ -204,15 +204,16 @@ def run_sim_with_stateest_for_powerflow():
     grid_health = 0
     all_differences = []
     num_timesteps = 96
-    model, bounds = fdia.deep_learning_fdia_train_model()
-    attack_vector = fdia.deep_learning_fdia_predict(model, bounds)
+    # model, bounds = fdia.deep_learning_fdia_train_model()
+    # attack_vector = fdia.deep_learning_fdia_predict(model, bounds)
     for i in range(num_timesteps):
         net.trafo.tap_pos = 1
         if i:
             # apply the values from the state estimation to be used in the power flow calculation
-            for bus in net.res_bus_est.index:
+            """for bus in net.res_bus_est.index:
                 net["bus"].loc[bus, "p_mw"] = net.res_bus_est.loc[bus, "p_mw"]
-                net["bus"].loc[bus, "q_mvar"] = net.res_bus_est.loc[bus, "q_mvar"]
+                net["bus"].loc[bus, "q_mvar"] = net.res_bus_est.loc[bus, "q_mvar"]"""
+            apply_absolute_values(net, profiles, i)
             pandapower.runpp(net, calculate_voltage_angles=True)
         else:
             apply_absolute_values(net, profiles, i)
@@ -233,11 +234,11 @@ def run_sim_with_stateest_for_powerflow():
             run_state_estimation(net)
             correct_data = net.res_bus_est
             grid_health += check_grid_health(net)
-            # attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
+            attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
             # attack_data = fdia.random_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
             # attack_data = fdia.random_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
             # attack_data = fdia.targeted_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
-            attack_data = fdia.deep_learning_fdia_inject(attack_vector, [0, 1, 2, 8, 9, 40], SMGW_data)
+            # attack_data = fdia.deep_learning_fdia_inject(attack_vector, [0, 1, 2, 8, 9, 40], SMGW_data)
             parse_measurement(attack_data, net)
             liu_counter += 1
         run_state_estimation(net)
