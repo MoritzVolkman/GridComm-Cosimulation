@@ -234,8 +234,8 @@ def run_sim_with_stateest_for_powerflow():
             run_state_estimation(net)
             correct_data = net.res_bus_est
             grid_health += check_grid_health(net)
-            attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
-            # attack_data = fdia.random_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
+            # attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
+            attack_data = fdia.random_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
             # attack_data = fdia.random_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
             # attack_data = fdia.targeted_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
             # attack_data = fdia.deep_learning_fdia_inject(attack_vector, [0, 1, 2, 8, 9, 40], SMGW_data)
