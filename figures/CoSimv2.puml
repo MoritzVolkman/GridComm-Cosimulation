@@ -8,7 +8,6 @@ loop n times
     GridSim -> GridSim: Check Grid Health
     GridSim -> GridSim: Extract Measurements and create SMGW JSON objects
     GridSim --> GridSim: Insert False Data into JSON measurement data
-    GridSim -> "Grid Socket": Pass JSON measurement data
     activate NetSim
     NetSim -> NetSim: Start listening for incoming data
     GridSim -> NetSim: Send JSON measurement data as TCP packets
