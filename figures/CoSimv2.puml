@@ -5,23 +5,20 @@ activate GridSim
 loop n times
     GridSim -> GridSim: Get Load Profiles for Timestep
     GridSim -> GridSim: Power Flow Calculation
+    GridSim -> GridSim: Check Grid Health
     GridSim -> GridSim: Extract Measurements and create SMGW JSON objects
     GridSim --> GridSim: Insert False Data into JSON measurement data
     GridSim -> "Grid Socket": Pass JSON measurement data
-    activate "Grid Socket"
-    activate "Net Socket"
     activate NetSim
-    "Net Socket" -> "Net Socket": Start listening for incoming data
-    "Grid Socket" -> "Net Socket": Pass JSON measurement data as TCP packets
-    "Net Socket" -> NetSim: Load JSON measurement data
+    NetSim -> NetSim: Start listening for incoming data
+    GridSim -> NetSim: Send JSON measurement data as TCP packets
+    NetSim -> NetSim: Parse JSON measurement data
     NetSim -> NetSim: Simulate sending of measurement data to Grid Operator
-    "Grid Socket" -> "Grid Socket": Start listening for incoming data
-    NetSim -> "Net Socket": pass JSON of data received by Grid Operator
-    "Net Socket" -> "Grid Socket": Send back data received by Grid Operator
-    "Grid Socket" -> GridSim: Load JSON Grid Operator Data
+    GridSim -> GridSim: Start listening for incoming data
+    NetSim -> NetSim: Congregate JSON of data received by Grid Operator
+    NetSim -> GridSim: Send back data received by Grid Operator
+    GridSim -> GridSim: Parse JSON Grid Operator Data
     deactivate NetSim
-    deactivate "Grid Socket"
-    deactivate "Net Socket"
     GridSim -> GridSim: Run Bad Data Detection
     GridSim -> GridSim: Run State Estimation
 end
