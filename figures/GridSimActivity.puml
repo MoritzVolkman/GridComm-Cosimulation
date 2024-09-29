@@ -5,15 +5,12 @@ while (Load Data Available)
     partition "Creation of Measurements" {
         :Get Data from Simbench Load Profile;
         :Run Power Flow Calculation;
+        :Check Grid Health;
         :Select Busses with SMGW;
-        if (Measurement Factor Set) then (yes)
-            :Calculate Measurements from Power Flow and Factor;
-        else (no)
-            :Take Power Flow Result;
-        endif
-        :Create Measurement Data;
+        :Create Measurement Data from Power Flow;
         if (FDIA) then (yes)
             :Inject FDIA Measurements into Measurement Data;
+        else (no)
         endif
             :Build SMGW JSON Files;
     }
@@ -22,6 +19,7 @@ while (Load Data Available)
     partition "State Estimation" {
         :Run Bad Data Detection;
         :Run State Estimation;
+        :Plot Effect;
     }
 endwhile
 stop
