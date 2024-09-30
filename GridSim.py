@@ -19,8 +19,12 @@ def main():
     sb_code = "1-LV-semiurb4--0-sw"
     net = sb.get_simbench_net(sb_code)
 
+    # let the netsim know about the amount of nodes
+    Network.send_message("127.0.0.1", 10000, f"{len(net.bus)}")
+
     profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
     for i in range(3): # normally should be 96, 3 just for testing
+        print(f"Doing Step {i}")
         # Do a power flow calculation for each time step
         apply_absolute_values(net, profiles, i)
         net.trafo.tap_pos = 1
@@ -138,7 +142,7 @@ def receive_from_network_sim():
     # The messages are in the form of a file with json objects and multiple lines
     # The json object is then returned as a list of json objects
 
-    message = Network.wait_for_message(8080)
+    message = Network.wait_for_message(10000)
     return message
     # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     #     s.bind((HOST, PORT))

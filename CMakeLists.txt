@@ -28,6 +28,14 @@ add_executable(NetSim
   ${CMAKE_SOURCE_DIR}/NetSim.cc
 )
 
+# Copy resource files to binary directory
+add_custom_command(TARGET NetSim POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                       ${CMAKE_SOURCE_DIR}/PCAP $<TARGET_FILE_DIR:NetSim>/PCAP)
+add_custom_command(TARGET NetSim POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                       ${CMAKE_SOURCE_DIR}/JSON $<TARGET_FILE_DIR:NetSim>/JSON)
+
 # Set c++ standard for NetSim target
 target_compile_features(NetSim PUBLIC cxx_std_20)
 
@@ -56,3 +64,10 @@ target_link_libraries(test
   nlohmann_json::nlohmann_json
 )
 
+
+add_custom_command(TARGET test POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                       ${CMAKE_SOURCE_DIR}/PCAP/ $<TARGET_FILE_DIR:test>)
+add_custom_command(TARGET test POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                       ${CMAKE_SOURCE_DIR}/JSON/ $<TARGET_FILE_DIR:test>)
