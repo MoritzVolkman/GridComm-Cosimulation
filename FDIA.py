@@ -12,10 +12,7 @@ from tensorflow import keras
 from deap import base, creator, tools, algorithms
 
 # Injects false data into the measurement data for the specified busses
-# The mode specifies the type of false data that is injected
-# Mode 0: Random values
-# Mode 1: Uninformed obstruction of the system - trying to make the system unstable
-# Mode 2: Informed obstruction of the system - trying to make the system unstable with calculations
+
 
 def random_fdia(busses, measurements):
     # Select the JSON object from the list where the "ConsumerID" matches the bus
@@ -152,6 +149,7 @@ def random_generalized_fdia_liu(busses, measurements, net, H):
 
 
 def targeted_generalized_fdia_liu(busses, measurements, net, H):
+    # Does not work yet, for future iterations
     # Example calculation of tau_a
     total_load = np.sum([measurement["MeasurementData"]["ActivePower"] for measurement in measurements])
     tau_a = total_load * 0.5
@@ -495,9 +493,6 @@ def plot_mean_and_std(differences_list):
         overall_mean = overall_means[measurement]
         ax.axhline(overall_mean, color='black', linestyle=':', linewidth=1, label='Overall Mean')
 
-        # Get rid of bug that shows overall means as large numbers although they are clearly zero
-        if overall_mean > 1.0e10 or overall_mean < -1.0e10:
-            overall_mean = 0
         # Annotate the overall mean value in the plot
         ax.text(0.95, 0.95, f'Overall mean: {overall_mean:.5f}%', transform=ax.transAxes, fontsize=10,
                 verticalalignment='top', horizontalalignment='right',
