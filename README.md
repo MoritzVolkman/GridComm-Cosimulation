@@ -25,7 +25,7 @@ If not it should (hopefully) be installed while cloning the repository and put t
 2. Configure CMake Project
 3. Build and run Netsim
 
-This is how the Program should work once it is finished:
+This is how the Program works:
 
 ![Sequence Diagram 2](./figures/CoSimv2.png)
 
@@ -33,8 +33,8 @@ This is how the Program should work once it is finished:
 
 ### Available modes of FDIA:
 
-- random FDIA
-- random FDIA according to Liu et al. 2011
-- Machine Learning FDIA
-- uninformed FDIA (WIP)
-- targeted FDIA according to Liu et al. 2011 (WIP)
+- random data FDIA
+- random non-generalized FDIA according to Liu et al. 2011
+- random generalized FDIA according to Liu et al. 2011
+- Machine Learning and Genetic Algorithm FDIA
+
