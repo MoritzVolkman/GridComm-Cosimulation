@@ -21,33 +21,12 @@ def main():
 
     # let the netsim know about the amount of nodes
     Network.send_message("127.0.0.1", 10000, f"{len(net.bus)}")
+    # Run the simulation
+    # Takes net as input
+    # Takes additional boolean value st_for_pf: True -> State Estimation for Power Flow Calculation, False -> Load Profile Data
+    # Takes additional string value attack_mode: random, non-generalized, generalized, MLGA, None
+    run_sim_with_stateest_for_powerflow(net)
 
-    profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
-    for i in range(3): # normally should be 96, 3 just for testing
-        print(f"Doing Step {i}")
-        # Do a power flow calculation for each time step
-        apply_absolute_values(net, profiles, i)
-        net.trafo.tap_pos = 1
-        pandapower.runpp(net, calculate_voltage_angles=True)
-        # Prints the head of the Powerflow results dataframe
-        # print(net.res_bus.head())
-        # create the measurement data for the time step
-        SMGW_data = create_measurement(net)
-        # parse measurements and run state estimation to see effect of FDIA
-        send_to_network_sim(SMGW_data, i)
-        received_data = receive_from_network_sim()
-        parse_measurement(json.loads(received_data), net)
-        run_state_estimation(net)
-        correct_data = net.res_bus_est
-        # Conduct FDIA on the measurement data
-        attack_buses = [40, 41, 42]
-        fdia.random_fdia(attack_buses, SMGW_data)
-        fdia.plot_attack(net, attack_buses)
-        # send_to_network_sim(SMGW_data, i)
-        # parse the measurement data from the network simulator SMGW_data will be replaced by GO_data
-        parse_measurement(SMGW_data, net) #replace SMGW_data with GO_data to incorporate network sim
-        run_state_estimation(net)
-        fdia.plot_differences(correct_data, net.res_bus_est)
 
 
 def run_state_estimation(net):
@@ -137,7 +116,6 @@ def send_to_network_sim(SMGW_data, timestep):
 
 def receive_from_network_sim():
     # Listens to messages on port 10000 for the measurement data from the network simulator
-
     message = Network.wait_for_message(10000)
     return message
 
@@ -178,50 +156,61 @@ def check_grid_health(net, verbose=False):
             return 0.0
 
 
-def run_sim_with_stateest_for_powerflow():
+def run_sim_with_stateest_for_powerflow(net, se_for_pf=False, attack_mode="random"):
+    # Can be run with the state estimation for the power flow calculation or with load profile data
+    # The attack mode can be set to None, random, non-generalized, generalized or MLGA
     # Load the Simbench data and configure the grid
-    sb_code = "1-LV-semiurb4--0-sw"
-    net = sb.get_simbench_net(sb_code)
     profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
     liu_counter = 0
     grid_health = 0
     all_differences = []
     num_timesteps = 96
-    model, bounds = fdia.deep_learning_fdia_train_model()
-    attack_vector = fdia.deep_learning_fdia_predict(model, bounds)
+    if attack_mode == "MLGA":
+        model, bounds = fdia.deep_learning_fdia_train_model()
+        attack_vector = fdia.deep_learning_fdia_predict(model, bounds)
     for i in range(num_timesteps):
         net.trafo.tap_pos = 1
         if i:
             # apply the values from the state estimation to be used in the power flow calculation
-            """for bus in net.res_bus_est.index:
-                net["bus"].loc[bus, "p_mw"] = net.res_bus_est.loc[bus, "p_mw"]
-                net["bus"].loc[bus, "q_mvar"] = net.res_bus_est.loc[bus, "q_mvar"]"""
-            apply_absolute_values(net, profiles, i)
+            if se_for_pf:
+                for bus in net.res_bus_est.index:
+                    net["bus"].loc[bus, "p_mw"] = net.res_bus_est.loc[bus, "p_mw"]
+                    net["bus"].loc[bus, "q_mvar"] = net.res_bus_est.loc[bus, "q_mvar"]
+            else:
+                apply_absolute_values(net, profiles, i)
             pandapower.runpp(net, calculate_voltage_angles=True)
         else:
             apply_absolute_values(net, profiles, i)
             pandapower.runpp(net, calculate_voltage_angles=True)
         SMGW_data = create_measurement(net)
+        send_to_network_sim(SMGW_data, i)
+        received_data = receive_from_network_sim()
         try:
             H = net._ppc["internal"]["J"].todense()
         except AttributeError:
             print("Jacobian Matrix not found")
-            parse_measurement(SMGW_data, net)
+            parse_measurement(json.loads(received_data))
             run_state_estimation(net)
             correct_data = net.res_bus_est
             grid_health += check_grid_health(net)
             attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
             parse_measurement(attack_data, net)
         else:
-            parse_measurement(SMGW_data, net)
+            parse_measurement(json.loads(received_data))
             run_state_estimation(net)
             correct_data = net.res_bus_est
             grid_health += check_grid_health(net)
-            # attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
-            # attack_data = fdia.random_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
-            # attack_data = fdia.random_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
-            # attack_data = fdia.targeted_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
-            attack_data = fdia.deep_learning_fdia_inject(attack_vector, [0, 1, 2, 8, 9, 40], SMGW_data)
+            match attack_mode:
+                case "random":
+                    attack_data = fdia.random_fdia([0, 1, 2, 8, 9, 40], SMGW_data)
+                case "non-generalized":
+                    attack_data = fdia.random_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
+                case "generalized":
+                    attack_data = fdia.random_generalized_fdia_liu([0, 1, 2, 8, 9, 40], SMGW_data, net, H)
+                case "MLGA":
+                    attack_data = fdia.deep_learning_fdia_inject(attack_vector, [0, 1, 2, 8, 9, 40], SMGW_data)
+                case "None":
+                    attack_data = SMGW_data
             parse_measurement(attack_data, net)
             liu_counter += 1
         run_state_estimation(net)
@@ -231,57 +220,6 @@ def run_sim_with_stateest_for_powerflow():
     print(f"Mean Effect: {fdia.plot_mean_and_std(all_differences)}")
     print(f"Grid Health: \n{grid_health/num_timesteps}")
 
-def train_fdia():
-    sb_code = "1-LV-semiurb4--0-sw"
-    net = sb.get_simbench_net(sb_code)
-    profiles = sb.get_absolute_values(net, profiles_instead_of_study_cases=True)
-    # Create a counter that is incremented every time a bus is selected as the most effective bus for one of the four values
-    # The counter is then used to select the most effective bus for the FDIA attack
-    counter = pd.DataFrame(columns="mean max".split())
-    # find the best attack busses for the Power FDIA
-    best_attack_busses = [0,1,2,8,9,40]
-    # Create Dataframe for the training data
-    """ for creating machine learning attack vectors
-    ml_attack_vectors = []
-    start = time.time()
-    for i in range(10):
-        start_i = time.time()
-        model, bounds = fdia.deep_learning_fdia_train_model()
-        att_vector = fdia.deep_learning_fdia_predict(model, bounds)
-        ml_attack_vectors.append(att_vector)
-        print("Execution time: ", time.time() - start_i)
-    print("Average execution time: ", (time.time() - start)/10)
-    print(ml_attack_vectors)
-    i = 0
-    for att_vec in ml_attack_vectors:
-    """
-    for i in range(10):
-        for j in range(96):
-            start = time.time()
-            # Take the load profile for a random timestep -> could be any other timestep
-            apply_absolute_values(net, profiles, j)
-            net.trafo.tap_pos = 1
-            if j:
-                pandapower.runpp(net, calculate_voltage_angles=True, init="results")
-            else:
-                pandapower.runpp(net, calculate_voltage_angles=True)
-            # Jacobian Matrix is deleted after state estimation, so has to be taken here
-            H = net._ppc["internal"]["J"].todense()
-            SMGW_data = create_measurement(net)
-            parse_measurement(SMGW_data, net)
-            run_state_estimation(net)
-            correct_data = net.res_bus_est
-            # Let the FDIA attack the grid at selected busses
-            # attack_data = fdia.deep_learning_fdia_inject(att_vec, best_attack_busses, SMGW_data)
-            attack_data = fdia.targeted_generalized_fdia_liu(best_attack_busses, SMGW_data, net, H)
-            parse_measurement(attack_data, net)
-            run_state_estimation(net)
-            differences = fdia.compute_differences(net.res_bus_est, correct_data)
-            # Print the mean and max of the differences
-            counter.loc[j] = [differences['d_p_mw'].mean(), differences['d_p_mw'].abs().max()]
-        print(f"Iteration {i}: \nMean: ", counter.abs().mean().values, "\n", "Max: ", counter.abs().max().values)
-        i += 1
-    fdia.plot_attack(net, best_attack_busses)
 
 def find_best_attack_busses():
     sb_code = "1-LV-semiurb4--0-sw"
@@ -293,7 +231,7 @@ def find_best_attack_busses():
     # find the best attack busses for the Power FDIA
     best_attack_busses = [0, 1, 2, 8, 9, 40]
     # Iterate over all time steps and show progress bar
-    for j in alive_it(range(96)):
+    for j in range(96):
         start = time.time()
         # Take the load profile for a random timestep -> could be any other timestep
         apply_absolute_values(net, profiles, j)
